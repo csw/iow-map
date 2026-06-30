@@ -183,15 +183,6 @@ def _remove_edge_between(verts_px, edges, px_a, px_b, max_dist=30):
 
 # ─── Per-Map Corrections ───────────────────────────────────────────────────
 
-def _correct_central_reef(verts_px, edges, w, h):
-    """v54 (484,1716) is a degree-1 spurious near-duplicate of the v51
-    (476,1698) junction, only 19.7px away, carrying one of v51's edges.
-    Reconnect that edge to v51 and remove v54."""
-    edges = _add_edge_between(verts_px, edges, (476, 1698), (370, 1794))
-    verts_px, edges = _remove_vertex_near(verts_px, edges, (484, 1716))
-    return verts_px, edges
-
-
 def _correct_east_reef(verts_px, edges, w, h):
     """Near Silken Strands, creature dot clusters sharing the line color
     apparently disrupted raster coverage sampling enough that
@@ -332,7 +323,6 @@ def _correct_the_anomaly_upper_level(verts_px, edges, w, h):
 
 
 GRAPH_CORRECTIONS = {
-    "central_reef": _correct_central_reef,
     "east_reef": _correct_east_reef,
     "the_bloom_main": _correct_the_bloom_main,
     "dusk_slopes": _correct_dusk_slopes,
