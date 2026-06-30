@@ -131,6 +131,23 @@ def _remove_vertex_near(verts_px, edges, target_px, max_dist=30):
     return new_verts, new_edges
 
 
+def _add_vertex(verts_px, edges, px, connect_to=None, max_dist=200):
+    """Insert a new vertex at px, optionally connected to the nearest
+    existing vertex to connect_to (or px itself if connect_to is omitted).
+    Use this when a label's connector line terminates somewhere the
+    extraction pipeline produced no vertex at all."""
+    new_idx = len(verts_px)
+    verts_px = verts_px + [px]
+    target = connect_to if connect_to is not None else px
+    nearest = _find_nearest_vertex(verts_px[:-1], target, max_dist)
+    if nearest is not None:
+        edges = edges + [sorted([new_idx, nearest])]
+        print(f"  Added vertex v{new_idx} at {px}, connected to v{nearest}")
+    else:
+        print(f"  WARN: added vertex v{new_idx} at {px} but no neighbor within {max_dist}px to connect to")
+    return verts_px, edges
+
+
 def _add_edge_between(verts_px, edges, px_a, px_b, max_dist=30):
     """Add an edge between the two vertices nearest to px_a and px_b."""
     va = _find_nearest_vertex(verts_px, px_a, max_dist)
@@ -185,18 +202,50 @@ def _correct_the_bloom_main(verts_px, edges, w, h):
     edges = _add_edge_between(verts_px, edges, (1166, 2330), (1188, 2476))
     # Gap at dark background transition on east side
     edges = _add_edge_between(verts_px, edges, (3242, 2594), (3221, 2616))
+    # "Bloom Bubble" connector line terminates here but extraction produced
+    # no vertex at all in this dark-background area (nearest existing vertex
+    # is 137px away). Insert one and connect it to that nearest vertex.
+    verts_px, edges = _add_vertex(verts_px, edges, (409, 3243))
     return verts_px, edges
 
 
 def _correct_brine_pool(verts_px, edges, w, h):
-    """No corrections currently needed — spurious label-text vertex now
-    handled by the extraction pipeline's solidity filter."""
+    """Spurious vertices the solidity filter doesn't catch."""
+    # v64 (1568,1552): degree-1 near-duplicate of v12 (1532,1528), only 44px
+    # away and visually overlapping the same raster triangle marker.
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (1568, 1552))
+    # v78 (226,2665): degree-2 pass-through between v43 (315,2664) and
+    # v76 (172,2674) — all near-collinear within ~90px, a spurious split
+    # of what should be a single edge.
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (226, 2665))
     return verts_px, edges
 
 
 def _correct_the_bloom_site_2_level_3(verts_px, edges, w, h):
-    """No corrections currently needed — spurious label-connector vertex now
-    handled by the extraction pipeline."""
+    """Two fixes near the 'To Level 4' junctions:
+    1. v4/v5/v6 (1071,768)/(1102,774)/(1081,788) are a single raster
+       junction split into three near-duplicate vertices, each carrying one
+       of four converging edges. Reconnect v5's and v6's edges to v4, then
+       remove v5 and v6.
+    2. The bottom-right 'To Level 4' triangle marker (~1534,1021) has no
+       vertex at all — extraction missed it even though red connector lines
+       to v9 and v11 are visible on the raster.
+    """
+    edges = _add_edge_between(verts_px, edges, (1071, 768), (1228, 807))
+    edges = _add_edge_between(verts_px, edges, (1071, 768), (1045, 953))
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (1102, 774))
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (1081, 788))
+    verts_px, edges = _add_vertex(verts_px, edges, (1534, 1021), connect_to=(1582, 875))
+    edges = _add_edge_between(verts_px, edges, (1534, 1021), (1651, 969))
+    return verts_px, edges
+
+
+def _correct_the_bloom_site_2_level_1(verts_px, edges, w, h):
+    """v2 (1041,1040) and v3 (1018,1043) are a 23px-apart duplicate pair at
+    the entry-node marker, each carrying one leg of what should be a closed
+    triangle (v0-v1-merged). Remove v3 and reconnect its edge to v2."""
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (1018, 1043))
+    edges = _add_edge_between(verts_px, edges, (935, 983), (1041, 1040))
     return verts_px, edges
 
 
@@ -218,6 +267,7 @@ GRAPH_CORRECTIONS = {
     "the_bloom_main": _correct_the_bloom_main,
     "brine_pool": _correct_brine_pool,
     "the_anomaly_upper_level": _correct_the_anomaly_upper_level,
+    "the_bloom_site_2_level_1": _correct_the_bloom_site_2_level_1,
     "the_bloom_site_2_level_3": _correct_the_bloom_site_2_level_3,
 }
 
@@ -278,13 +328,13 @@ MAP_METADATA = {
             (2936, 1093): "Silken Strands",
             (3049, 1205): "Chitin Plate",
             (588, 1391): "Canopy Root",
-            (1014, 1520): "Bright Pollen",
+            (759, 1549): "Bright Pollen",  # text@(975, 1825)
             (2198, 1717): "Shed Tail",
-            (2088, 1999): "Feather Arm",
-            (2135, 2000): "Petal Shoot",
-            (2132, 2040): "Silken Root",
-            (4273, 1055): "Colony Bladder",
-            (2713, 1196): "Stalk Segment",
+            (2087, 2000): "Feather Arm",  # text@(2580, 2125)
+            (1394, 2013): "Petal Shoot",  # text@(700, 2200)
+            (1751, 2099): "Silken Root",  # text@(1300, 2380)
+            (4108, 205): "Colony Bladder",  # text@(3530, 90)
+            (1181, 942): "Stalk Segment",  # text@(810, 940)
             (4227, 1162): "Colony Tentacle",
             (1170, 1473): "Bright Pollen",
             (2339, 1649): "Shed Feather",
@@ -300,10 +350,11 @@ MAP_METADATA = {
             (2447, 714): "Sphere Fragment",
             (1218, 717): "Waystation",
             (3955, 2612): "To Central Reef",
-            (1578, 2886): "Fan Stem",
-            (625, 3467): "Nest Fragment",
-            (2133, 1285): "Bivalve Shell",
-            (3038, 1813): "Fan Dust",
+            (1304, 2983): "Fan Stem",  # text@(1307, 3700)
+            (206, 3817): "Nest Fragment",  # text@(190, 3905)
+            (1978, 1308): "Bivalve Shell",  # text@(1730, 975)
+            (3111, 2112): "Fan Dust",  # text@(3460, 1990)
+            (409, 3243): "Bloom Bubble",  # text@(50, 3265); vertex added by _correct_the_bloom_main
         },
     },
     "dusk_slopes": {
@@ -318,15 +369,16 @@ MAP_METADATA = {
             (197, 475): "Veil Tissue",
             (1759, 611): "Petal Root",
             (353, 1157): "Shed Polyp",
-            (1369, 1417): "Ovoid Bud",
+            (1204, 1390): "Ovoid Bud",  # was (1369,1417); line terminus is v49, not v50
             (548, 1459): "Glowing Spine",
-            (1152, 1665): "Beaded Eggs",
+            (1066, 1592): "Beaded Eggs",  # was (1152,1665); line terminus is v55, not v115
             (1833, 1797): "Tail Segment",
-            (1951, 2319): "Deep Pollen",
-            (1948, 2361): "Fan Sheath",
+            (1880, 2258): "Deep Pollen",  # text@(2215, 2220); was colliding with Fan Sheath on v74
+            (1954, 2315): "Fan Sheath",  # text@(2330, 2315)
             (3436, 3406): "To Brine Pools",
             (1576, 4312): "Digested Remains",
             (921, 5098): "Start",
+            (2369, 3793): "ROV Site",  # text@(2370, 3700); blue connector line, distinct from white ones
         },
     },
     "brine_pool": {
@@ -341,7 +393,7 @@ MAP_METADATA = {
             (1159, 1326): "Deep Pollen",        # v8
             (2203, 787): "Bristly Limb",        # v5
             (966, 1485): "Brine Shell",         # v10
-            (1684, 1926): "Mucus Bubble",       # v23
+            (1647, 1758): "Mucus Bubble",       # text@(1880,1930); traced from connector line, was wrongly at (1684,1926)
             (1101, 2065): "Brine Mat",          # v29
             (471, 2406): "Brine Mat",           # v41
             (831, 2314): "Mucus Bubble",        # v36
@@ -355,16 +407,18 @@ MAP_METADATA = {
     "the_anomaly_lower_level": {
         "name": "Anomaly Lower",
         "GS_px": None,
-        "EN_px": [(766, 3663), (1106, 3717)],
+        "EN_px": [(766, 3663), (1106, 3717), (1244, 987)],
         "FR": 131,
         "labels_px": {
             (304, 817): "Spiral Secretion",
-            (1636, 1416): "Spiral Secretion",
-            (1304, 1815): "Spiral Secretion",
-            (1978, 1815): "Molted Skin",
+            (1733, 1411): "Spiral Secretion",
+            (937, 1806): "Spiral Secretion",
+            (1838, 1842): "Molted Skin",
             (766, 3663): "To Dusk Slopes",
             (1106, 3717): "To Dusk Slopes",
             (1263, 1132): "Fan Sheath",
+            (989, 3383): "ROV Site",  # text@(1280, 3375) approx
+            (1244, 987): "To Anomaly Upper Level",  # text@(1450, 1100) approx
         },
     },
     "the_anomaly_upper_level": {
@@ -381,10 +435,10 @@ MAP_METADATA = {
     "the_bloom_site_2_level_1": {
         "name": "Bloom Site 2 L1",
         "GS_px": None,
-        "EN_px": [(1018, 1044)],
+        "EN_px": [(1041, 1040)],  # was (1018,1044)/v3, merged into v2
         "FR": 173,
         "labels_px": {
-            (1040, 1042): "Bloom Source",
+            (1100, 970): "Bloom Source",  # was (1040,1042); connector line traces to v0, not the entry vertex
         },
     },
     "the_bloom_site_2_level_2": {
@@ -397,16 +451,25 @@ MAP_METADATA = {
     "the_bloom_site_2_level_3": {
         "name": "Bloom Site 2 L3",
         "GS_px": None,
-        "EN_px": [(1006, 1093), (1637, 577), (1651, 969)],
+        "EN_px": [(1006, 1093), (1637, 577), (1651, 969), (1071, 768), (1534, 1021)],
         "FR": 173,
-        "labels_px": {},
+        "labels_px": {
+            (1071, 768): "To Level 4",  # text@(910, 700); was (1102,774)/v5, merged into v4
+            (1534, 1021): "To Level 4",  # vertex added by correction; missing from extraction
+        },
     },
     "the_bloom_site_2_level_4": {
         "name": "Bloom Site 2 L4",
         "GS_px": None,
         "EN_px": [(524, 548), (1087, 773), (2576, 827), (1673, 974), (990, 1109)],
         "FR": 173,
-        "labels_px": {},
+        "labels_px": {
+            (524, 548): "To Bloom",
+            (1087, 773): "To Level 3",
+            (2576, 827): "To Central Reef",
+            (1673, 974): "To Level 3",
+            (990, 1109): "To Level 3",
+        },
     },
 }
 

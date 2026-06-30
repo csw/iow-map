@@ -28,7 +28,40 @@ correctly in the first place. Every entry needs an independent visual trace
 of its connector line; don't skip entries just because they "look fine" in
 `corrections.py`.
 
+**`labels_px` can also be missing entries outright, not just mis-targeted.**
+On `the_bloom_main`, the coordinate stored for "Nest Fragment" actually sits
+next to text reading "BLOOM BUBBLE" — there was never a "Nest Fragment"
+label there at all, and the map's real "Bloom Bubble" item had no
+`labels_px` entry anywhere. Verifying only the names already in
+`corrections.py` would never catch this, since there's nothing to compare
+the wrong name against. Step 0 below exists specifically to catch this class
+of bug — don't skip it.
+
 ## Workflow
+
+0. **Sweep the whole map for label text before checking individual
+   entries.** Tile crops across the *entire* `maps/<key>.jpg` (a grid of
+   overlapping regions covers a large image faster than scrolling around
+   looking for text) and read through them, noting every piece of label
+   text you see. Cross-check that list against `labels_px`'s names. A name
+   on the map with no `labels_px` entry is a missing label to add; a name
+   in `labels_px` you never spotted on the map is worth a second look, since
+   it may be attached to the wrong text (as in the Bloom Bubble case above).
+
+0.5. **Check for vertex collisions before tracing anything by hand.**
+   `resolve_labels()` snaps each `labels_px` coordinate to its nearest
+   vertex and keys a dict by that vertex index — if two *different* labels
+   resolve to the *same* vertex, one silently overwrites the other and
+   vanishes from the built app with no build-time warning. This is a
+   distinct bug from mis-targeting: both labels' text and connector lines
+   are genuinely present on the map (a visual sweep won't flag it), but one
+   of them still disappears. Run:
+   ```
+   uv run python .claude/skills/verify-map-labels/scripts/find_collisions.py <map_key>
+   ```
+   Any collision it reports needs the visual trace-and-fix treatment below
+   for at least one of the colliding entries — they can't both legitimately
+   point at the same vertex.
 
 This works directly from the map JPEG and the structured vertex data — no
 browser or interactive viewer needed for the core loop. Use `Bash` to crop
@@ -40,15 +73,24 @@ pixel position into an exact vertex.
    `tools/corrections.py` to get the current `(x, y): "Label Name"` pairs
    you're about to verify.
 
-2. **For each label, crop and look.** Crop a generous region (roughly
-   ±400-600px) of `maps/<key>.jpg` around the label's current coordinate
-   with PIL, and view it with `Read`:
+2. **Batch-crop wide regions for every label up front.** Rather than
+   shelling out to PIL once per label, write a single small script that
+   loops over the map's `labels_px` entries and saves a wide crop
+   (roughly ±400-600px around each coordinate) for all of them in one go,
+   named after the label so they're easy to `Read` through in sequence:
    ```python
    from PIL import Image
    im = Image.open('maps/central_reef.jpg')
-   crop = im.crop((x0, y0, x1, y1))
-   crop.save('/tmp/crops/some_label.png')
+   for (x, y), name in labels_px.items():
+       pad = 500
+       crop = im.crop((x-pad, y-pad, x+pad, y+pad))
+       crop.save(f'{scratch_dir}/{name.replace(" ", "_")}.png')
    ```
+   This is faster than one-off crops and means you can `Read` through them
+   one after another without re-running Bash each time. Use a tight
+   secondary crop (see below) only for labels where the wide crop doesn't
+   make the line's terminus obvious.
+
    Find the label text (color and connector-line color vary per map, and
    sometimes per label within a map — e.g. gray lines mark "object of
    interest" labels on some maps — don't assume white text / white lines).
@@ -99,7 +141,9 @@ pixel position into an exact vertex.
    Watch for `WARN: label '...' — no vertex within 80px` — that means your
    corrected coordinate landed too far from any real vertex (typo, wrong
    map, or the vertex really doesn't exist in the extracted graph — check
-   the raw graph in `overlays/viewer.html` if so). A clean rebuild with no
+   the raw graph in `overlays/viewer.html` if so). Also re-run
+   `find_collisions.py` — fixing one mis-targeted label can accidentally
+   create a new collision with another. A clean rebuild with no
    warnings is necessary but not sufficient — it confirms every coordinate
    snapped to *some* vertex, not that it's the *right* one, so it doesn't
    replace the visual trace in steps 2-3.
