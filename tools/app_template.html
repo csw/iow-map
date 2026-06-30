@@ -296,7 +296,7 @@ function render(){
     g.style.display="";g.setAttribute("transform",`translate(${px},${py})`);
     const c=g.children[1],ring=g.children[0],nd=g.children[2],label=g.children[3];
     if(isCur){c.setAttribute("fill","#ffd700");c.setAttribute("stroke","#ffd700");c.setAttribute("opacity",.95);c.setAttribute("stroke-width",4);}
-    else if(isVis){c.setAttribute("fill","rgba(255,255,255,0.8)");c.setAttribute("stroke","#ffffff");c.setAttribute("opacity",.9);c.setAttribute("stroke-width",3);}
+    else if(isVis){c.setAttribute("fill","rgba(255,255,255,0.28)");c.setAttribute("stroke","rgba(45,212,168,0.9)");c.setAttribute("opacity",.9);c.setAttribute("stroke-width",3);}
     else{c.setAttribute("fill","transparent");c.setAttribute("stroke","rgba(255,200,100,0.7)");c.setAttribute("opacity",.85);c.setAttribute("stroke-width",2.5);}
     ring.style.display=isCur?"":"none";
     nd.style.display=notes[i]?"":"none";

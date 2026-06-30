@@ -182,8 +182,15 @@ def _remove_edge_between(verts_px, edges, px_a, px_b, max_dist=30):
 # ─── Per-Map Corrections ───────────────────────────────────────────────────
 
 def _correct_east_reef(verts_px, edges, w, h):
-    """No corrections currently needed — raster-aware edge validation handles
-    the spurious diagonals that previously required manual removal."""
+    """Near Silken Strands, creature dot clusters sharing the line color
+    apparently disrupted raster coverage sampling enough that
+    validate_edges() dropped four real edges entirely, forming a dense
+    junction (found via find_missing_edges.py flagging the bare raster
+    lines as uncovered)."""
+    edges = _add_edge_between(verts_px, edges, (2861, 840), (2985, 928))
+    edges = _add_edge_between(verts_px, edges, (2832, 969), (2935, 1093))
+    edges = _add_edge_between(verts_px, edges, (2861, 840), (2832, 969))
+    edges = _add_edge_between(verts_px, edges, (2832, 969), (2801, 1155))
     return verts_px, edges
 
 
@@ -213,6 +220,23 @@ def _correct_the_bloom_main(verts_px, edges, w, h):
     edges = _add_edge_between(verts_px, edges, (1723, 2542), (1629, 2716))
     edges = _add_edge_between(verts_px, edges, (1723, 2542), (2329, 2762))
     verts_px, edges = _remove_vertex_near(verts_px, edges, (1723, 2574))
+    # v59 had exactly 2 neighbors (v64, v65), so _remove_vertex_near's
+    # pass-through bridging logic connected them directly with a 700px+
+    # edge that has no corresponding raster line — both are already
+    # correctly connected via v58 above, so drop the bogus bridge.
+    edges = _remove_edge_between(verts_px, edges, (1629, 2716), (2329, 2762))
+    return verts_px, edges
+
+
+def _correct_dusk_slopes(verts_px, edges, w, h):
+    """Spurious degree-2 vertices left over from path simplification."""
+    # v45 (525,1232): sits ~2.5px off the straight line between its
+    # neighbors v42 (503,1168) and v48 (554,1336) — a redundant collinear
+    # point, not a real bend.
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (525, 1232))
+    # v64 (1595,1866): sits ~5px off the straight line between its
+    # neighbors v60 (1667,1760) and v66 (1582,1896) — same artifact.
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (1595, 1866))
     return verts_px, edges
 
 
@@ -276,6 +300,7 @@ def _correct_the_anomaly_upper_level(verts_px, edges, w, h):
 GRAPH_CORRECTIONS = {
     "east_reef": _correct_east_reef,
     "the_bloom_main": _correct_the_bloom_main,
+    "dusk_slopes": _correct_dusk_slopes,
     "brine_pool": _correct_brine_pool,
     "the_anomaly_upper_level": _correct_the_anomaly_upper_level,
     "the_bloom_site_2_level_1": _correct_the_bloom_site_2_level_1,
