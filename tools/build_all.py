@@ -88,7 +88,8 @@ def extract_map(map_key, overlay_dir=None):
 
 
 def apply_corrections_to_graph(map_key):
-    """Load graph JSON, apply corrections, save back."""
+    """Load graph JSON, apply corrections in memory. Returns corrected data
+    without modifying the JSON file (keeps it as raw extraction output)."""
     graph_path = GRAPHS_DIR / f"{map_key}_graph.json"
     if not graph_path.exists():
         return None
@@ -102,22 +103,17 @@ def apply_corrections_to_graph(map_key):
 
     verts_px, edges = apply_corrections(map_key, verts_px, edges, w, h)
 
-    # Recompute normalized coords
     verts_norm = [[round(x / w, 4), round(y / h, 4)] for x, y in verts_px]
 
     data["vertices"] = verts_norm
     data["vertices_px"] = verts_px
     data["edges"] = edges
 
-    with open(graph_path, "w") as f:
-        json.dump(data, f, indent=2)
-
     return data
 
 
-def build_html(output_path, use_relative_paths=False):
-    """Generate the HTML app from graph data + metadata."""
-    # Read HTML template (everything except the MAPS constant)
+def build_html(output_path, corrected_graphs, use_relative_paths=False):
+    """Generate the HTML app from corrected graph data + metadata."""
     template_path = TOOLS_DIR / "app_template.html"
     if not template_path.exists():
         print(f"ERROR: {template_path} not found")
@@ -126,17 +122,13 @@ def build_html(output_path, use_relative_paths=False):
     with open(template_path) as f:
         template = f.read()
 
-    # Build MAPS JS object
     maps_entries = []
     for key in MAP_ORDER:
-        graph_path = GRAPHS_DIR / f"{key}_graph.json"
-        if not graph_path.exists():
-            print(f"  SKIP: {graph_path} not found")
+        if key not in corrected_graphs:
+            print(f"  SKIP: {key} not available")
             continue
 
-        with open(graph_path) as f:
-            g = json.load(f)
-
+        g = corrected_graphs[key]
         meta = MAP_METADATA[key]
         verts_px = g["vertices_px"]
         iw, ih = g["image_w"], g["image_h"]
@@ -223,17 +215,19 @@ def main():
             for line in lines:
                 print(line)
 
-    # Step 2: Apply corrections
+    # Step 2: Apply corrections (in memory only — graph JSONs stay as raw extraction output)
     print("\n=== Step 2: Apply corrections ===")
-    for key in maps_to_process:
+    corrected = {}
+    for key in MAP_ORDER:
         data = apply_corrections_to_graph(key)
         if data:
+            corrected[key] = data
             print(f"  {key}: {len(data['vertices'])}v {len(data['edges'])}e")
 
     # Step 3: Build HTML
     print("\n=== Step 3: Build HTML ===")
-    build_html(ROOT / "iow-map.html", use_relative_paths=False)
-    build_html(ROOT / "index.html", use_relative_paths=True)
+    build_html(ROOT / "iow-map.html", corrected, use_relative_paths=False)
+    build_html(ROOT / "index.html", corrected, use_relative_paths=True)
 
     # Print known issues
     issues = {k: v for k, v in KNOWN_ISSUES.items() if k in maps_to_process}

@@ -299,25 +299,70 @@ def insert_mid_segment_vertices(vertices, edges, new_points):
     return verts, new_edges
 
 
-def merge_close_vertices(vertices, edges, radius=30):
-    """Merge vertices within `radius` pixels of each other, but ONLY if
-    they are directly connected by an edge.
-    
-    This prevents merging vertices that are spatially close but
-    topologically distant (e.g. Bloat Root and a nearby junction that's
-    4 hops away on the graph).
-    
-    Uses union-find to group nearby edge-connected vertices into clusters,
-    replaces each cluster with its centroid, and remaps all edges.
+def _raster_connected(line_mask, x0, y0, x1, y1, max_dist=40):
+    """Check if two points are connected via line_mask pixels.
+
+    BFS on line_mask pixels starting from (x0,y0), limited to a bounding
+    box around both points.  Returns True if we reach (x1,y1).
+    """
+    from collections import deque
+    h, w = line_mask.shape
+    pad = 10
+    bx0 = max(0, min(x0, x1) - pad)
+    by0 = max(0, min(y0, y1) - pad)
+    bx1 = min(w, max(x0, x1) + pad + 1)
+    by1 = min(h, max(y0, y1) + pad + 1)
+
+    # Find nearest mask pixel to start
+    best_start = None
+    best_sd = 999
+    for dy in range(-5, 6):
+        for dx in range(-5, 6):
+            ny, nx = y0 + dy, x0 + dx
+            if 0 <= ny < h and 0 <= nx < w and line_mask[ny, nx]:
+                d = abs(dx) + abs(dy)
+                if d < best_sd:
+                    best_sd = d
+                    best_start = (nx, ny)
+    if best_start is None:
+        return False
+
+    visited = set()
+    visited.add(best_start)
+    queue = deque([best_start])
+    target_r = 5
+
+    while queue:
+        cx, cy = queue.popleft()
+        if abs(cx - x1) <= target_r and abs(cy - y1) <= target_r:
+            return True
+        for dy in [-1, 0, 1]:
+            for dx in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                nx, ny = cx + dx, cy + dy
+                if (bx0 <= nx < bx1 and by0 <= ny < by1
+                        and line_mask[ny, nx] and (nx, ny) not in visited):
+                    visited.add((nx, ny))
+                    queue.append((nx, ny))
+    return False
+
+
+def merge_close_vertices(vertices, edges, radius=30, line_mask=None):
+    """Merge vertices within `radius` pixels of each other.
+
+    Pass 1: merge edge-connected pairs within radius (original behavior).
+    Pass 2 (if line_mask provided): merge unconnected pairs within radius
+    that are connected via raster pixels.  This catches skeleton junction
+    artifacts while preserving cases like Bloat Root where two vertices
+    are close but on separate raster paths.
     """
     n = len(vertices)
     if n == 0:
         return vertices, edges
-    
-    # Build adjacency from edges
+
     edge_set = set(tuple(sorted(e)) for e in edges)
-    
-    # Union-find
+
     parent = list(range(n))
     def find(x):
         while parent[x] != x:
@@ -328,8 +373,8 @@ def merge_close_vertices(vertices, edges, radius=30):
         a, b = find(a), find(b)
         if a != b:
             parent[b] = a
-    
-    # Only merge pairs that share an edge AND are within radius
+
+    # Pass 1: merge edge-connected pairs within radius
     merges = 0
     for a, b in edge_set:
         dx = vertices[a][0] - vertices[b][0]
@@ -338,11 +383,28 @@ def merge_close_vertices(vertices, edges, radius=30):
             if (dx*dx + dy*dy)**0.5 <= radius:
                 union(a, b)
                 merges += 1
-    
-    if merges == 0:
+
+    # Pass 2: merge unconnected pairs within radius IF raster-connected
+    raster_merges = 0
+    if line_mask is not None:
+        for a in range(n):
+            for b in range(a + 1, n):
+                if find(a) == find(b):
+                    continue
+                dx = vertices[a][0] - vertices[b][0]
+                dy = vertices[a][1] - vertices[b][1]
+                dist = (dx*dx + dy*dy)**0.5
+                if dist <= radius:
+                    ax, ay = vertices[a]
+                    bx, by = vertices[b]
+                    if _raster_connected(line_mask, ax, ay, bx, by):
+                        union(a, b)
+                        raster_merges += 1
+
+    if merges == 0 and raster_merges == 0:
         print(f"  Vertex merge: no clusters found (radius={radius})")
         return vertices, edges
-    
+
     # Build clusters
     clusters = {}
     for i in range(n):
@@ -350,10 +412,13 @@ def merge_close_vertices(vertices, edges, radius=30):
         if root not in clusters:
             clusters[root] = []
         clusters[root].append(i)
-    
+
     multi = {r: members for r, members in clusters.items() if len(members) > 1}
-    print(f"  Vertex merge: {len(multi)} clusters ({sum(len(m) for m in multi.values())} vertices -> {len(multi)})")
-    
+    msg = f"  Vertex merge: {len(multi)} clusters ({sum(len(m) for m in multi.values())} vertices -> {len(multi)})"
+    if raster_merges:
+        msg += f" ({raster_merges} raster-connected)"
+    print(msg)
+
     # Build new vertex list: centroid of each cluster
     old_to_new = {}
     new_verts = []
@@ -366,17 +431,57 @@ def merge_close_vertices(vertices, edges, radius=30):
             old_to_new[root] = len(new_verts)
             new_verts.append((cx, cy))
         old_to_new[i] = old_to_new[root]
-    
+
     # Remap edges, remove self-loops and duplicates
     new_edge_set = set()
     for a, b in edges:
         na, nb = old_to_new[a], old_to_new[b]
         if na != nb:
             new_edge_set.add(tuple(sorted((na, nb))))
-    
+
     new_edges = sorted([list(e) for e in new_edge_set])
     print(f"  After merge: {len(new_verts)} vertices, {len(new_edges)} edges")
     return new_verts, new_edges
+
+
+def validate_edges(vertices, edges, line_mask, min_coverage=0.3, sample_step=3,
+                    buffer_px=4):
+    """Remove edges that don't follow raster lines.
+
+    For each edge, sample points along the straight line between the two
+    vertices and check what fraction falls within `buffer_px` of the
+    line_mask.  Edges below `min_coverage` are spurious.
+    """
+    from scipy.ndimage import distance_transform_edt
+
+    h, w = line_mask.shape
+    dt = distance_transform_edt(~line_mask)
+
+    kept = []
+    removed = 0
+    for a, b in edges:
+        ax, ay = vertices[a]
+        bx, by = vertices[b]
+        dx, dy = bx - ax, by - ay
+        length = max(1, int((dx * dx + dy * dy) ** 0.5))
+        n_samples = max(3, length // sample_step)
+        on_mask = 0
+        for s in range(n_samples):
+            t = s / (n_samples - 1)
+            sx = int(round(ax + dx * t))
+            sy = int(round(ay + dy * t))
+            if 0 <= sy < h and 0 <= sx < w and dt[sy, sx] <= buffer_px:
+                on_mask += 1
+        coverage = on_mask / n_samples
+        if coverage >= min_coverage:
+            kept.append([a, b])
+        else:
+            removed += 1
+
+    if removed:
+        print(f"  Edge validation: removed {removed} spurious edges "
+              f"(coverage < {min_coverage}, buffer={buffer_px}px)")
+    return kept
 
 
 def main():
@@ -437,7 +542,10 @@ def main():
             nv, ne = insert_mid_segment_vertices(nv, ne, new_pts)
 
     if args.merge_radius > 0:
-        nv, ne = merge_close_vertices(nv, ne, radius=args.merge_radius)
+        nv, ne = merge_close_vertices(nv, ne, radius=args.merge_radius,
+                                      line_mask=line_mask)
+
+    ne = validate_edges(nv, ne, line_mask)
 
     out = args.output or args.image.rsplit('.', 1)[0] + '_graph.json'
     vn = [[round(x/w, 4), round(y/h, 4)] for x, y in nv]

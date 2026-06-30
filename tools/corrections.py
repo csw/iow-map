@@ -50,11 +50,7 @@ EXTRACTION_CONFIG = {
     },
     "brine_pool": {
         "seed": "22,80,252", "threshold": 90, "epsilon": 5,
-        "merge_radius": 30, "detect_triangles": False,
-        # Triangle detection disabled: creature blobs sit directly on path
-        # edges (< 3px) and pass all size/distance filters. No algorithmic
-        # filter can distinguish them from real triangle markers.
-        # Straight sections may be missing intermediate waypoints.
+        "merge_radius": 30, "detect_triangles": True,
     },
     "the_anomaly_lower_level": {
         "seed": "246,0,68", "seed2": "222,172,9", "threshold": 90,
@@ -169,45 +165,59 @@ def _remove_edge_between(verts_px, edges, px_a, px_b, max_dist=30):
 # ─── Per-Map Corrections ───────────────────────────────────────────────────
 
 def _correct_east_reef(verts_px, edges, w, h):
-    """Fix spurious diagonal edges in the skeleton graph.
-
-    The triangle detection false positives (creature dots, yellow nav lines)
-    are now handled by shape filters in detect_triangle_markers().  Only the
-    base-skeleton edge errors remain.
-    """
-    edges = _remove_edge_between(verts_px, edges,
-                                 (2862, 839), (2832, 969), max_dist=40)  # v5↔v10
-    edges = _remove_edge_between(verts_px, edges,
-                                 (2862, 839), (2984, 928), max_dist=40)  # v5↔v8
-    edges = _remove_edge_between(verts_px, edges,
-                                 (2832, 969), (2935, 1093), max_dist=40)  # v10↔v16
-    edges = _remove_edge_between(verts_px, edges,
-                                 (2832, 969), (2801, 1155), max_dist=40)  # v10↔v17
-    verts_px, edges = _remove_vertex_near(verts_px, edges, (2842, 1308))  # skeleton artifact on green terrain
+    """No corrections currently needed — raster-aware edge validation handles
+    the spurious diagonals that previously required manual removal."""
     return verts_px, edges
 
 
 def _correct_the_bloom_main(verts_px, edges, w, h):
-    """Add green path segment connecting two red-line endpoints."""
+    """Fix edges in dark background area north of Fan Stem."""
     # Green segment between (1730, 2559) and (2314, 2761) on the raster.
-    # Both endpoints are existing vertices in the red-line graph.
     edges = _add_edge_between(verts_px, edges, (1730, 2559), (2314, 2761),
                               max_dist=50)
+    # Spurious vertex cluster at dark background transition (~1170,2340):
+    # three vertices where raster lines converge at one point.
+    # Remove two, reconnect their external neighbors to the survivor.
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (1163, 2350))
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (1190, 2350))
+    edges = _add_edge_between(verts_px, edges, (1166, 2330), (1091, 2410))
+    edges = _add_edge_between(verts_px, edges, (1166, 2330), (1321, 2445))
+    edges = _add_edge_between(verts_px, edges, (1166, 2330), (1188, 2476))
+    # Gap at dark background transition on east side
+    edges = _add_edge_between(verts_px, edges, (3242, 2594), (3221, 2616))
+    return verts_px, edges
+
+
+def _correct_brine_pool(verts_px, edges, w, h):
+    """No corrections currently needed — spurious label-text vertex now
+    handled by the extraction pipeline's solidity filter."""
     return verts_px, edges
 
 
 def _correct_the_bloom_site_2_level_3(verts_px, edges, w, h):
-    """Remove spurious vertex where a label connector line crosses a graph segment."""
-    # At approximately (1534, 1019) in the raster image.
-    verts_px, edges = _remove_vertex_near(verts_px, edges, (1534, 1019),
-                                          max_dist=40)
+    """No corrections currently needed — spurious label-connector vertex now
+    handled by the extraction pipeline."""
     return verts_px, edges
 
 
 # Register corrections (only maps that need them)
+def _correct_the_anomaly_upper_level(verts_px, edges, w, h):
+    """Fix spurious vertex cluster at To Lower Level transition (~1240,990):
+    three degree-1 vertices where raster lines converge at one point."""
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (1228, 984))
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (1244, 1000))
+    edges = _add_edge_between(verts_px, edges, (1254, 980), (1060, 960),
+                              max_dist=40)
+    edges = _add_edge_between(verts_px, edges, (1254, 980), (1272, 1129),
+                              max_dist=40)
+    return verts_px, edges
+
+
 GRAPH_CORRECTIONS = {
     "east_reef": _correct_east_reef,
     "the_bloom_main": _correct_the_bloom_main,
+    "brine_pool": _correct_brine_pool,
+    "the_anomaly_upper_level": _correct_the_anomaly_upper_level,
     "the_bloom_site_2_level_3": _correct_the_bloom_site_2_level_3,
 }
 
@@ -236,7 +246,7 @@ MAP_METADATA = {
         "EN": None,  # Uses GS instead
         "FR": 248,
         "labels_px": {
-            # (x, y) → label text. Resolved to nearest vertex at build time.
+            # (x, y) near TARGET VERTEX. Resolved to nearest vertex at build time.
             (1886, 453): "To The Bloom",
             (4348, 812): "Canopy Growth",
             (2417, 1065): "Waystation",
@@ -244,16 +254,16 @@ MAP_METADATA = {
             (3392, 1487): "Fungal Cluster",
             (3711, 1707): "Soothespore",
             (484, 1698): "Bloat Root",
-            (3132, 1709): "To East Reef",
+            (4011, 1820): "To East Reef",
             (3437, 2006): "Clouded Shell",
-            (3677, 2133): "Stalk Root",
-            (3924, 2494): "Cap Section",
-            (4324, 3081): "Stalk Spore",
+            (2486, 2012): "Stalk Root",
+            (3502, 2437): "Cap Section",
+            (2796, 3198): "Stalk Spore",
             (3508, 3803): "Game Start",
-            (2071, 1467): "Striped Egg",
-            (6753, 1707): "Soothespore",
+            (797, 1130): "Striped Egg",
+            (3645, 1834): "Soothespore",
             (2924, 2802): "Stalk Bark",
-            (7745, 3081): "Stalk Spore",
+            (2816, 3459): "Stalk Spore",
         },
     },
     "east_reef": {
@@ -262,21 +272,22 @@ MAP_METADATA = {
         "EN_px": [(926, 685), (138, 1444)],  # Two "To Central Reef" exits
         "FR": 232,
         "labels_px": {
+            # (x, y) near TARGET VERTEX. Resolved to nearest vertex at build time.
             (926, 685): "To Central Reef",
             (138, 1444): "To Central Reef",
             (2936, 1093): "Silken Strands",
             (3049, 1205): "Chitin Plate",
-            (1463, 662): "Canopy Root",
-            (1631, 1615): "Bright Pollen",
-            (1797, 1355): "Shed Tail",
+            (588, 1391): "Canopy Root",
+            (1014, 1520): "Bright Pollen",
+            (2198, 1717): "Shed Tail",
             (2088, 1999): "Feather Arm",
             (2135, 2000): "Petal Shoot",
             (2132, 2040): "Silken Root",
             (4273, 1055): "Colony Bladder",
             (2713, 1196): "Stalk Segment",
             (4227, 1162): "Colony Tentacle",
-            (3488, 1332): "Bright Pollen",
-            (3876, 1716): "Shed Feather",
+            (1170, 1473): "Bright Pollen",
+            (2339, 1649): "Shed Feather",
         },
     },
     "the_bloom_main": {
@@ -298,9 +309,10 @@ MAP_METADATA = {
     "dusk_slopes": {
         "name": "Dusk Slopes",
         "GS_px": None,
-        "EN_px": [(773, 212), (1096, 217), (3222, 4676), (921, 5098)],
+        "EN_px": [(773, 212), (1096, 217), (3436, 3406), (921, 5098)],
         "FR": 173,
         "labels_px": {
+            # (x, y) near TARGET VERTEX. Resolved to nearest vertex at build time.
             (773, 212): "To The Anomaly",
             (1096, 217): "To The Anomaly",
             (197, 475): "Veil Tissue",
@@ -308,12 +320,12 @@ MAP_METADATA = {
             (353, 1157): "Shed Polyp",
             (1369, 1417): "Ovoid Bud",
             (548, 1459): "Glowing Spine",
-            (882, 1477): "Beaded Eggs",
+            (1152, 1665): "Beaded Eggs",
             (1833, 1797): "Tail Segment",
             (1951, 2319): "Deep Pollen",
             (1948, 2361): "Fan Sheath",
-            (3222, 4676): "To Brine Pools",
-            (1194, 4527): "Digested Remains",
+            (3436, 3406): "To Brine Pools",
+            (1576, 4312): "Digested Remains",
             (921, 5098): "Start",
         },
     },
@@ -322,24 +334,23 @@ MAP_METADATA = {
         "GS_px": None,
         "EN_px": [(27, 2670)],  # "To Dusk Slopes"
         "FR": 132,
-        # NOTE: Most of these label assignments are WRONG and need a full
-        # redo via visual inspection of the raster map. Keeping them as
-        # placeholders for now.
         "labels_px": {
-            (992, 470): "Crested Shell",
-            (2034, 608): "Fan Sheath",
-            (1850, 964): "Bristly Limb",
-            (2068, 958): "Deep Pollen",
-            (966, 1485): "Brine Shell",
-            (1681, 1911): "Mucus Bubble",
-            (578, 2320): "Brine Mat",
-            (1303, 1762): "Mucus Bubble",
-            (1380, 2745): "Young Carapace",
-            (1580, 2812): "Brine Shell",
-            (526, 2401): "Mucus Bubble",
-            (516, 2399): "Brine Shell",
+            (992, 470): "Crested Shell",       # v2
+            (2034, 606): "Fan Sheath",          # v3
+            (1098, 1259): "Fan Sheath",         # v7
+            (1159, 1326): "Deep Pollen",        # v8
+            (2203, 787): "Bristly Limb",        # v5
+            (966, 1485): "Brine Shell",         # v10
+            (1684, 1926): "Mucus Bubble",       # v23
+            (1101, 2065): "Brine Mat",          # v29
+            (471, 2406): "Brine Mat",           # v41
+            (831, 2314): "Mucus Bubble",        # v36
+            (906, 2367): "Brine Shell",         # v38
+            (563, 2732): "Mucus Bubble",        # v49
+            (1714, 2788): "Mucus Bubble",       # v51
+            (1583, 2841): "Young Carapace",     # v52
+            (1780, 2950): "Brine Shell",        # v53
         },
-        "_label_warning": "Most labels are approximate/wrong. Needs VLM redo.",
     },
     "the_anomaly_lower_level": {
         "name": "Anomaly Lower",
@@ -386,7 +397,7 @@ MAP_METADATA = {
     "the_bloom_site_2_level_3": {
         "name": "Bloom Site 2 L3",
         "GS_px": None,
-        "EN_px": [(1006, 1093)],  # bottom endpoint
+        "EN_px": [(1006, 1093), (1637, 577), (1651, 969)],
         "FR": 173,
         "labels_px": {},
     },
@@ -411,19 +422,9 @@ KNOWN_ISSUES = {
         "(Canopy Root, Bright Pollen, Shed Tail, Shed Feather) have no vertex "
         "within 80px."
     ),
-    "brine_pool": (
-        "Triangle detection disabled because creature blobs sit directly "
-        "on path edges (< 3px distance). Straight sections may be missing "
-        "intermediate waypoints. Labels are mostly wrong — need full redo "
-        "via raster map inspection."
-    ),
     "the_bloom_main": (
         "Some edges missed in dark background region N of Fan Stem. "
         "Likely a threshold issue — lines are dimmer against darker background."
-    ),
-    "the_anomaly_upper_level": (
-        "Three vertices (v25/v26/v28) clustered within 20px near center "
-        "'To Lower Level' exit. May need manual cleanup."
     ),
 }
 
