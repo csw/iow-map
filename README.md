@@ -21,10 +21,10 @@ This uses the excellent [maps](https://steamcommunity.com/sharedfiles/filedetail
 ## Building from Source
 
 ```bash
-pip install scikit-image Pillow scipy numpy
+uv sync
 
 # Add map images to maps/ directory, then:
-python tools/build_all.py
+uv run python tools/build_all.py
 ```
 
 This runs the full pipeline: extract graphs from map images → apply manual corrections → generate HTML.

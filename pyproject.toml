@@ -1,0 +1,10 @@
+[project]
+name = "iow-map"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "scikit-image",
+    "Pillow",
+    "scipy",
+    "numpy",
+]
