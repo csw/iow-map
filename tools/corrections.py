@@ -58,9 +58,11 @@ EXTRACTION_CONFIG = {
         # Dual-seed: bottom corridor to Dusk Slopes uses gold/amber lines.
     },
     "the_anomaly_upper_level": {
-        "seed": "240,75,30", "threshold": 80, "epsilon": 5,
+        "seed": "240,75,30", "seed2": "222,172,9", "threshold": 80, "epsilon": 5,
         "merge_radius": 30, "detect_triangles": True,
         # Graph lines are orange-red, NOT the standard magenta-red (246,0,68).
+        # Dual-seed: a side spur NE of "Exit Anomaly" uses gold/amber lines,
+        # same palette as the_anomaly_lower_level's Dusk Slopes corridor.
     },
     "the_bloom_site_2_level_1": {
         "seed": "246,0,68", "threshold": 90, "epsilon": 5,
@@ -181,6 +183,15 @@ def _remove_edge_between(verts_px, edges, px_a, px_b, max_dist=30):
 
 # ─── Per-Map Corrections ───────────────────────────────────────────────────
 
+def _correct_central_reef(verts_px, edges, w, h):
+    """v54 (484,1716) is a degree-1 spurious near-duplicate of the v51
+    (476,1698) junction, only 19.7px away, carrying one of v51's edges.
+    Reconnect that edge to v51 and remove v54."""
+    edges = _add_edge_between(verts_px, edges, (476, 1698), (370, 1794))
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (484, 1716))
+    return verts_px, edges
+
+
 def _correct_east_reef(verts_px, edges, w, h):
     """Near Silken Strands, creature dot clusters sharing the line color
     apparently disrupted raster coverage sampling enough that
@@ -253,25 +264,33 @@ def _correct_brine_pool(verts_px, edges, w, h):
     # between these two junctions was never extracted (found via
     # find_missing_edges.py flagging an uncovered diagonal line segment).
     edges = _add_edge_between(verts_px, edges, (1495, 1878), (1360, 1985))
+    # "Brine Mat" (west, ~490,2398) and (440,2526): a real raster line runs
+    # directly between them (confirmed via find_missing_edges.py uncovered
+    # component at bbox (435,2394)-(495,2515)) but extraction only kept the
+    # longer path through the intermediate junction at (530,2485).
+    edges = _add_edge_between(verts_px, edges, (490, 2398), (440, 2526))
+    # (1684,1926) is missing its connections to (1647,1758) "Mucus Bubble"
+    # and (1495,1878) — both real raster lines flagged as uncovered by
+    # find_missing_edges.py.
+    edges = _add_edge_between(verts_px, edges, (1684, 1926), (1647, 1758))
+    edges = _add_edge_between(verts_px, edges, (1684, 1926), (1495, 1878))
     return verts_px, edges
 
 
 def _correct_the_bloom_site_2_level_3(verts_px, edges, w, h):
-    """Two fixes near the 'To Level 4' junctions:
-    1. v4/v5/v6 (1071,768)/(1102,774)/(1081,788) are a single raster
-       junction split into three near-duplicate vertices, each carrying one
-       of four converging edges. Reconnect v5's and v6's edges to v4, then
-       remove v5 and v6.
-    2. The bottom-right 'To Level 4' triangle marker (~1534,1021) has no
-       vertex at all — extraction missed it even though red connector lines
-       to v9 and v11 are visible on the raster.
+    """v4/v5/v6 (1071,768)/(1102,774)/(1081,788) are a single raster
+    junction split into three near-duplicate vertices, each carrying one
+    of four converging edges. Reconnect v5's and v6's edges to v4, then
+    remove v5 and v6.
+
+    (The right-side 'To Level 4' triangle - top (1582,875), bottom-left
+    (1532,1017), marker (1651,969) - is already a fully closed 3-edge
+    triangle straight out of extraction; no correction needed there.)
     """
     edges = _add_edge_between(verts_px, edges, (1071, 768), (1228, 807))
     edges = _add_edge_between(verts_px, edges, (1071, 768), (1045, 953))
     verts_px, edges = _remove_vertex_near(verts_px, edges, (1102, 774))
     verts_px, edges = _remove_vertex_near(verts_px, edges, (1081, 788))
-    verts_px, edges = _add_vertex(verts_px, edges, (1534, 1021), connect_to=(1582, 875))
-    edges = _add_edge_between(verts_px, edges, (1534, 1021), (1651, 969))
     return verts_px, edges
 
 
@@ -281,6 +300,15 @@ def _correct_the_bloom_site_2_level_1(verts_px, edges, w, h):
     triangle (v0-v1-merged). Remove v3 and reconnect its edge to v2."""
     verts_px, edges = _remove_vertex_near(verts_px, edges, (1018, 1043))
     edges = _add_edge_between(verts_px, edges, (935, 983), (1041, 1040))
+    return verts_px, edges
+
+
+def _correct_the_anomaly_lower_level(verts_px, edges, w, h):
+    """Top marker (208,909) and bottom marker (220,1046) form a closed
+    triangle with (160,999) - all three sides are real raster lines, but
+    extraction only kept two (top-left, left-bottom). Add the missing
+    right side directly connecting the two markers."""
+    edges = _add_edge_between(verts_px, edges, (208, 909), (220, 1046))
     return verts_px, edges
 
 
@@ -294,14 +322,22 @@ def _correct_the_anomaly_upper_level(verts_px, edges, w, h):
                               max_dist=40)
     edges = _add_edge_between(verts_px, edges, (1254, 980), (1272, 1129),
                               max_dist=40)
+    # "Exit Anomaly" junction (~2213,405): dual-seed extraction (orange-red +
+    # gold) produced two near-duplicate vertices 18px apart, one per seed
+    # color, instead of merging at the shared raster junction. Reconnect the
+    # gold spur's edge to the EN vertex (2213,405) and drop the duplicate.
+    edges = _add_edge_between(verts_px, edges, (2363, 326), (2213, 405))
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (2231, 402))
     return verts_px, edges
 
 
 GRAPH_CORRECTIONS = {
+    "central_reef": _correct_central_reef,
     "east_reef": _correct_east_reef,
     "the_bloom_main": _correct_the_bloom_main,
     "dusk_slopes": _correct_dusk_slopes,
     "brine_pool": _correct_brine_pool,
+    "the_anomaly_lower_level": _correct_the_anomaly_lower_level,
     "the_anomaly_upper_level": _correct_the_anomaly_upper_level,
     "the_bloom_site_2_level_1": _correct_the_bloom_site_2_level_1,
     "the_bloom_site_2_level_3": _correct_the_bloom_site_2_level_3,
@@ -439,6 +475,7 @@ MAP_METADATA = {
             (1583, 2841): "Young Carapace",     # v52
             (1780, 2950): "Brine Shell",        # v53
             (1532, 1528): "ROV Site",           # v12; blue connector line to "ROV SITE" text, was missing from labels_px entirely
+            (27, 2670): "To Dusk Slopes",       # EN; raster map doesn't label it, but every entry node should be
         },
     },
     "the_anomaly_lower_level": {
@@ -476,6 +513,7 @@ MAP_METADATA = {
         "FR": 173,
         "labels_px": {
             (1100, 970): "Bloom Source",  # was (1040,1042); connector line traces to v0, not the entry vertex
+            (1041, 1040): "To Levels 1-4",  # gold connector line down to entry-node triangle marker
         },
     },
     "the_bloom_site_2_level_2": {
@@ -483,16 +521,26 @@ MAP_METADATA = {
         "GS_px": None,
         "EN_px": [(1670, 539), (1033, 1085)],
         "FR": 173,
-        "labels_px": {},
+        "labels_px": {
+            (1670, 539): "To Level 3",
+            (1033, 1085): "To Levels 1-4",
+        },
     },
     "the_bloom_site_2_level_3": {
         "name": "Bloom Site 2 L3",
         "GS_px": None,
-        "EN_px": [(1006, 1093), (1637, 577), (1651, 969), (1071, 768), (1534, 1021)],
+        # Exactly 4 real entry markers (color-detected green triangle blobs);
+        # (1534,1021) is a real raster vertex (bottom-left corner of the
+        # right-side triangle junction) but NOT a marker — it was wrongly
+        # included as a 5th EN previously.
+        "EN_px": [(1006, 1093), (1637, 577), (1651, 969), (1071, 768)],
         "FR": 173,
         "labels_px": {
+            (1006, 1093): "To Levels 1-4",  # text@(360, 810)
+            (1637, 577): "To Level 2",  # text@(1900, 535)
             (1071, 768): "To Level 4",  # text@(910, 700); was (1102,774)/v5, merged into v4
-            (1534, 1021): "To Level 4",  # vertex added by correction; missing from extraction
+            (1651, 969): "To Level 4",  # text@(2070, 990); was wrongly at (1534,1021), the
+                                          # triangle's bottom-left corner, not the marker itself
         },
     },
     "the_bloom_site_2_level_4": {
@@ -518,13 +566,7 @@ KNOWN_ISSUES = {
     "east_reef": (
         "Triangle detection false positives (creature dots, yellow nav lines) "
         "now handled by shape filters in detect_triangle_markers(). 4 spurious "
-        "diagonal edges still corrected manually. Some labeled vertices "
-        "(Canopy Root, Bright Pollen, Shed Tail, Shed Feather) have no vertex "
-        "within 80px."
-    ),
-    "the_bloom_main": (
-        "Some edges missed in dark background region N of Fan Stem. "
-        "Likely a threshold issue — lines are dimmer against darker background."
+        "diagonal edges still corrected manually."
     ),
 }
 

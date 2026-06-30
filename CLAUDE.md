@@ -60,5 +60,3 @@ Standalone visual overlay tool for verifying label placements. Open in a browser
 ## Known Issues (from corrections.py)
 
 - **east_reef**: creature dot clusters (same red as graph lines) create spurious vertices near Petal Shoot, Shed Feather, Silken Strands — needs manual `_remove_vertex_near` pass
-- **brine_pool**: most label assignments are wrong; triangle detection disabled (creature blobs cause false positives)
-- **the_bloom_main**: missing edges north of Fan Stem
