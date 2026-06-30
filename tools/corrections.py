@@ -252,17 +252,17 @@ MAP_METADATA = {
             (2417, 1065): "Waystation",
             (4847, 1089): "To East Reef",
             (3392, 1487): "Fungal Cluster",
-            (3711, 1707): "Soothespore",
-            (484, 1698): "Bloat Root",
+            (3711, 1707): "Soothespore",  # text@(3735, 2125)
+            (484, 1716): "Bloat Root",  # text@(380, 2040)
             (4011, 1820): "To East Reef",
-            (3437, 2006): "Clouded Shell",
+            (1753, 1935): "Clouded Shell",  # text@(1260, 2150)
             (2486, 2012): "Stalk Root",
             (3502, 2437): "Cap Section",
             (2796, 3198): "Stalk Spore",
             (3508, 3803): "Game Start",
             (797, 1130): "Striped Egg",
-            (3645, 1834): "Soothespore",
-            (2924, 2802): "Stalk Bark",
+            (3493, 1832): "Soothespore",  # text@(3735, 2125)
+            (2394, 2591): "Stalk Bark",  # text@(2393, 2765)
             (2816, 3459): "Stalk Spore",
         },
     },

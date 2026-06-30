@@ -222,3 +222,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Debug viewer artifacts (regenerate via .claude/skills/verify-map-labels)
+/label_debug_viewer.html
+/map_data_debug.json

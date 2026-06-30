@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Label Debug Viewer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#111;color:#ddd;font-family:system-ui,sans-serif;overflow:hidden;height:100vh}
+#app{display:flex;flex-direction:column;height:100vh}
+#hdr{padding:8px 16px;background:#1a1a2e;border-bottom:1px solid #333;display:flex;align-items:center;gap:12px;flex-shrink:0}
+#hdr select{background:#222;color:#ddd;border:1px solid #555;border-radius:4px;padding:4px 8px;font-size:14px}
+#hdr .info{margin-left:auto;font-size:12px;color:#888}
+#canvas-wrap{flex:1;overflow:hidden;position:relative;cursor:grab}
+#canvas-wrap:active{cursor:grabbing}
+canvas{position:absolute;top:0;left:0}
+#tooltip{position:fixed;background:rgba(0,0,0,.9);color:#ffd700;padding:6px 12px;border-radius:6px;font-size:14px;pointer-events:none;display:none;z-index:10;border:1px solid #ffd700;white-space:pre-line}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <select id="mapsel"></select>
+    <label><input type="checkbox" id="showLabels" checked> Resolved Labels</label>
+    <label><input type="checkbox" id="showRaw" checked> Raw label_px target (magenta X)</label>
+    <label>Focus: <select id="focusSel"><option value="">All (markers only)</option></select></label>
+    <span class="info" id="info"></span>
+  </div>
+  <div id="canvas-wrap"><canvas id="cv"></canvas></div>
+  <div id="tooltip"></div>
+</div>
+<script>
+let DATA=null;
+const MAPORDER=["central_reef","east_reef","the_bloom_main","dusk_slopes","brine_pool",
+  "the_anomaly_lower_level","the_anomaly_upper_level",
+  "the_bloom_site_2_level_1","the_bloom_site_2_level_2","the_bloom_site_2_level_3","the_bloom_site_2_level_4"];
+const NAMES={central_reef:"Central Reef",east_reef:"East Reef",the_bloom_main:"The Bloom",dusk_slopes:"Dusk Slopes",
+  brine_pool:"Brine Pool",the_anomaly_lower_level:"Anomaly Lower",the_anomaly_upper_level:"Anomaly Upper",
+  the_bloom_site_2_level_1:"Bloom Site2 L1",the_bloom_site_2_level_2:"Bloom Site2 L2",
+  the_bloom_site_2_level_3:"Bloom Site2 L3",the_bloom_site_2_level_4:"Bloom Site2 L4"};
+
+const sel=document.getElementById("mapsel");
+MAPORDER.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=NAMES[k];sel.appendChild(o);});
+
+let curKey="central_reef", M=null;
+let img=new Image(), imgLoaded=false;
+const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+const wrap=document.getElementById("canvas-wrap");
+let W=0,H=0, ox=0,oy=0, scale=1;
+let showLabels=true, showRaw=true, focusIdx="";
+
+document.getElementById("showLabels").onchange=e=>{showLabels=e.target.checked;draw();};
+document.getElementById("showRaw").onchange=e=>{showRaw=e.target.checked;draw();};
+const focusSel=document.getElementById("focusSel");
+focusSel.onchange=e=>{focusIdx=e.target.value;draw();};
+
+function loadMap(key){
+  curKey=key; M=DATA[key]; imgLoaded=false;
+  img=new Image();
+  img.onload=()=>{imgLoaded=true; fitView(); draw();};
+  img.onerror=()=>{imgLoaded=false; draw();};
+  img.src="maps/"+key+".jpg";
+  document.getElementById("info").textContent=`${NAMES[key]}: ${M.verts.length}v, ${Object.keys(M.labels).length} labels resolved, ${Object.keys(M.labels_px).length} labels_px entries`;
+  focusSel.innerHTML='<option value="">All (markers only)</option>';
+  Object.entries(M.labels).forEach(([idx,text])=>{
+    const o=document.createElement("option"); o.value=idx; o.textContent=`${text} (v${idx})`; focusSel.appendChild(o);
+  });
+  focusIdx=""; focusSel.value="";
+  draw();
+}
+
+function fitView(){
+  W=wrap.clientWidth; H=wrap.clientHeight;
+  cv.width=W*devicePixelRatio; cv.height=H*devicePixelRatio;
+  cv.style.width=W+"px"; cv.style.height=H+"px";
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  const sx=W/M.w, sy=H/M.h;
+  scale=Math.min(sx,sy)*0.95;
+  ox=(W-M.w*scale)/2; oy=(H-M.h*scale)/2;
+}
+
+function draw(){
+  if(!M)return;
+  W=wrap.clientWidth; H=wrap.clientHeight;
+  if(cv.width!==W*devicePixelRatio||cv.height!==H*devicePixelRatio){
+    cv.width=W*devicePixelRatio; cv.height=H*devicePixelRatio;
+    cv.style.width=W+"px"; cv.style.height=H+"px";
+  }
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  ctx.clearRect(0,0,W,H);
+  ctx.save(); ctx.translate(ox,oy); ctx.scale(scale,scale);
+
+  if(imgLoaded) ctx.drawImage(img,0,0,M.w,M.h);
+  else{ctx.fillStyle="#222";ctx.fillRect(0,0,M.w,M.h);}
+
+  // Edges
+  ctx.strokeStyle="rgba(0,255,255,0.35)";ctx.lineWidth=4/scale;
+  M.edges.forEach(([a,b])=>{
+    const [ax,ay]=M.verts[a], [bx,by]=M.verts[b];
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+  });
+
+  // Vertices
+  // Fixed SCREEN-pixel sizes (constant on-screen size regardless of zoom) — convert to image-space by dividing by scale
+  const r=4/scale;
+  M.verts.forEach(([x,y],i)=>{
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.strokeStyle="#00ffff";
+    ctx.lineWidth=1.5/scale; ctx.stroke();
+  });
+
+  // Resolved labels: highlight target vertex + draw text offset well away from
+  // the vertex (with a thin leader line) so it never overlaps the map's own
+  // label text. Orange is used because it contrasts with the green/teal/black
+  // terrain on every map (green text, used previously, blended into terrain).
+  // When a label is "focused" (selected in the dropdown), only ITS full
+  // text/leader/box is drawn — other labels get a small plain ring so dense
+  // clusters of nearby labels (e.g. Fungal Cluster / Soothespore / Clouded
+  // Shell sitting close together) don't pile their text boxes on top of each
+  // other. With nothing focused, every label gets just the small ring too —
+  // pick one from "Focus" to see its full detail.
+  if(showLabels){
+    const fontSize=12/scale;
+    const dx=14/scale, dy=-22/scale;  // offset of text anchor from vertex, in image px
+    Object.entries(M.labels).forEach(([idx,text])=>{
+      const [x,y]=M.verts[idx];
+      const isFocused = focusIdx!=="" && String(idx)===String(focusIdx);
+      ctx.beginPath(); ctx.arc(x,y,r*2,0,Math.PI*2);
+      ctx.strokeStyle="#ff9100";ctx.lineWidth=(isFocused?3:1.5)/scale;ctx.stroke();
+      if(!isFocused) return;
+
+      const tx=x+dx, ty=y+dy;
+      ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(tx,ty);
+      ctx.strokeStyle="rgba(255,145,0,0.9)";ctx.lineWidth=1.5/scale;ctx.stroke();
+
+      ctx.font=`bold ${fontSize}px sans-serif`;ctx.textAlign="left";ctx.textBaseline="bottom";
+      const w=ctx.measureText(text).width, pad=3/scale;
+      ctx.fillStyle="rgba(0,0,0,0.85)";
+      ctx.fillRect(tx-pad, ty-fontSize-pad, w+2*pad, fontSize+2*pad);
+      ctx.fillStyle="#ff9100";
+      ctx.fillText(text,tx,ty);
+    });
+  }
+
+  // Raw label_px targets (the coordinate used to search for nearest vertex)
+  if(showRaw){
+    ctx.strokeStyle="#ff00ff";ctx.lineWidth=2.5/scale;
+    Object.entries(M.labels_px).forEach(([coord,text])=>{
+      const [x,y]=coord.split(",").map(Number);
+      const s=9/scale;
+      ctx.beginPath();ctx.moveTo(x-s,y-s);ctx.lineTo(x+s,y+s);ctx.moveTo(x+s,y-s);ctx.lineTo(x-s,y+s);ctx.stroke();
+    });
+  }
+
+  ctx.restore();
+}
+
+// Pan & zoom
+let drag=null;
+wrap.addEventListener("mousedown",e=>{drag={x:e.clientX,y:e.clientY,ox,oy};});
+window.addEventListener("mousemove",e=>{
+  if(!drag)return;
+  ox=drag.ox+(e.clientX-drag.x); oy=drag.oy+(e.clientY-drag.y); draw();
+});
+window.addEventListener("mouseup",()=>{drag=null;});
+wrap.addEventListener("wheel",e=>{
+  e.preventDefault();
+  const rect=wrap.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const f=e.deltaY>0?0.85:1.18;
+  const ns=scale*f;
+  ox=mx-(mx-ox)*(ns/scale); oy=my-(my-oy)*(ns/scale);
+  scale=ns; draw();
+},{passive:false});
+
+// Tooltip + click-to-get-pixel-coords
+wrap.addEventListener("mousemove",e=>{
+  if(drag)return;
+  const rect=wrap.getBoundingClientRect();
+  const mx=(e.clientX-rect.left-ox)/scale, my=(e.clientY-rect.top-oy)/scale;
+  const tt=document.getElementById("tooltip");
+  let best=-1,bd=40/scale;
+  M.verts.forEach(([x,y],i)=>{
+    const d=Math.hypot(x-mx,y-my);
+    if(d<bd){bd=d;best=i;}
+  });
+  let txt=`px=(${Math.round(mx)}, ${Math.round(my)})`;
+  if(best>=0){
+    txt+=`\nvertex ${best}`;
+    if(M.labels[best]) txt+=` = "${M.labels[best]}"`;
+  }
+  tt.textContent=txt;
+  tt.style.display="block";tt.style.left=(e.clientX+14)+"px";tt.style.top=(e.clientY+14)+"px";
+});
+
+sel.value=curKey; sel.onchange=()=>loadMap(sel.value);
+window.addEventListener("resize",()=>{fitView();draw();});
+
+fetch("map_data_debug.json").then(r=>r.json()).then(d=>{DATA=d; loadMap(curKey);});
+</script>
+</body>
+</html>
