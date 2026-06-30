@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>IOW Map Tracker</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#060d13;color:#2dd4a8;
+  font-family:'SF Mono',Menlo,'Courier New',monospace;
+  touch-action:none;user-select:none;-webkit-user-select:none;
+  overscroll-behavior:none}
+#app{display:flex;flex-direction:column;height:100dvh;height:100vh}
+#hdr{padding:6px 12px;border-bottom:1px solid rgba(45,212,168,.2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:6px}
+#hdr h1{color:#ffd700;font-size:13px;font-weight:700;letter-spacing:1.5px;margin:0;white-space:nowrap}
+.btns{display:flex;gap:5px;align-items:center;flex-shrink:0}
+.btn{background:transparent;border:1px solid rgba(106,155,141,.3);color:#6a9b8d;border-radius:6px;padding:3px 9px;font-size:11px;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.btn.on{background:rgba(45,212,168,.12);border-color:rgba(45,212,168,.4);color:#2dd4a8}
+#mapsel{background:#0a1520;border:1px solid rgba(45,212,168,.3);color:#2dd4a8;border-radius:6px;padding:3px 6px;font-size:11px;font-family:inherit;cursor:pointer;max-width:140px}
+#map{flex:1;overflow:hidden;position:relative}
+#info{padding:5px 12px;border-top:1px solid rgba(45,212,168,.15);flex-shrink:0;font-size:11px;display:flex;align-items:center;gap:8px;min-height:26px}
+#info .pos{color:#ffd700}
+#info .note{color:#6bb5ff}
+#bar{padding:7px 12px;border-top:1px solid rgba(45,212,168,.2);display:flex;gap:8px;justify-content:center;flex-shrink:0}
+.mbtn{border-radius:8px;padding:7px 16px;font-size:12px;font-family:inherit;cursor:pointer;letter-spacing:.3px;border:1px solid;-webkit-tap-highlight-color:transparent}
+.mbtn.visit{border-color:rgba(45,212,168,.4);color:rgba(45,212,168,.5);background:transparent}
+.mbtn.visit.on{background:rgba(45,212,168,.09);color:#2dd4a8;font-weight:700}
+.mbtn.note{border-color:rgba(107,181,255,.4);color:rgba(107,181,255,.5);background:transparent}
+.mbtn.note.on{background:rgba(107,181,255,.09);color:#6bb5ff;font-weight:700}
+#noted{padding:10px 12px;border-top:1px solid rgba(107,181,255,.3);background:rgba(6,13,25,.97);flex-shrink:0;display:none}
+#noted label{color:#6bb5ff;font-size:11px;font-weight:600;display:block;margin-bottom:5px}
+#noted .row{display:flex;gap:8px}
+#noted input{flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(107,181,255,.2);border-radius:6px;padding:6px 10px;color:#c8efe0;font-size:13px;font-family:inherit;outline:none}
+#noted .sv{background:#6bb5ff;color:#000;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer}
+#noted .cl{background:transparent;color:#6a9b8d;border:1px solid rgba(106,155,141,.3);border-radius:6px;padding:6px 10px;font-size:12px;font-family:inherit;cursor:pointer}
+@keyframes pulse{0%,100%{r:50;opacity:.45}50%{r:70;opacity:.12}}
+.ring{animation:pulse 2s infinite}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <div style="display:flex;align-items:center;gap:8px;min-width:0">
+      <select id="mapsel" onchange="switchMap(this.value)"></select>
+      <div class="sub" id="count" style="color:#6a9b8d;font-size:10px;white-space:nowrap"></div>
+    </div>
+    <div class="btns">
+      <button class="btn" id="ubtn" style="display:none" onclick="undo()">↩</button>
+      <button class="btn on" id="fbtn" onclick="toggleFog()">◐ Fog</button>
+      <button class="btn" onclick="if(confirm('Reset this area?'))reset()">Reset</button>
+    </div>
+  </div>
+  <div id="map"></div>
+  <div id="noted">
+    <label id="nlabel">Note</label>
+    <div class="row">
+      <input id="ninput" placeholder="e.g. blocked, need shrillsac" onkeydown="if(event.key==='Enter')saveNote()">
+      <button class="sv" onclick="saveNote()">Save</button>
+      <button class="cl" onclick="closeNote()">✕</button>
+    </div>
+  </div>
+  <div id="info"><span class="pos" id="postext"></span><span class="note" id="notetext"></span></div>
+  <div id="bar">
+    <button class="mbtn visit on" id="vbtn" onclick="setMode('visit')">◉ Tap to visit</button>
+    <button class="mbtn note" id="nbtn" onclick="setMode('note')">✎ Add note</button>
+  </div>
+</div>
+<script>
+/* __MAPS_DATA__ */
+
+const MAPORDER=["central_reef","east_reef","the_bloom_main","dusk_slopes","brine_pool",
+  "the_anomaly_lower_level","the_anomaly_upper_level",
+  "the_bloom_site_2_level_1","the_bloom_site_2_level_2","the_bloom_site_2_level_3","the_bloom_site_2_level_4"];
+
+// Populate selector
+const sel=document.getElementById("mapsel");
+MAPORDER.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=MAPS[k].name;sel.appendChild(o);});
+
+// Current map state
+let curMap="central_reef";
+let M=MAPS[curMap]; // active map data
+let V,E,LBL,IW,IH,GS,FR,IMG;
+let vis,cur,notes,fog,mode="visit",editId=null,undo_stack=[];
+let vb,nodeEls=[],edgeEls=[],maskCircles=[];
+
+const mapEl=document.getElementById("map");
+const ns="http://www.w3.org/2000/svg";
+let svg,defs,mask,maskBg,imgEl,edgeG,nodeG;
+
+function sk(){return "iow_"+curMap;}
+function entryNodes(){
+  return M.EN||[];
+}
+
+function initSVG(){
+  if(svg)mapEl.removeChild(svg);
+  svg=document.createElementNS(ns,"svg");
+  svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+  svg.style.cssText="display:block;width:100%;height:100%;touch-action:none;cursor:crosshair";
+  mapEl.appendChild(svg);
+  defs=document.createElementNS(ns,"defs");
+  mask=document.createElementNS(ns,"mask");mask.id="fmask";
+  maskBg=document.createElementNS(ns,"rect");
+  maskBg.setAttribute("fill","black");
+  mask.appendChild(maskBg);defs.appendChild(mask);svg.appendChild(defs);
+  imgEl=document.createElementNS(ns,"image");
+  imgEl.setAttribute("mask","url(#fmask)");
+  svg.appendChild(imgEl);
+  edgeG=document.createElementNS(ns,"g");svg.appendChild(edgeG);
+  nodeG=document.createElementNS(ns,"g");svg.appendChild(nodeG);
+  attachEvents();
+}
+
+function buildMap(key){
+  curMap=key;M=MAPS[key];
+  V=M.V;E=M.E;LBL=M.LBL;IW=M.IW;IH=M.IH;GS=M.GS;FR=M.FR;IMG=M.img;
+  
+  initSVG();
+  svg.setAttribute("viewBox",`0 0 ${IW} ${IH}`);
+  maskBg.setAttribute("width",IW);maskBg.setAttribute("height",IH);
+  imgEl.setAttribute("href",IMG);imgEl.setAttribute("width",IW);imgEl.setAttribute("height",IH);
+  vb={x:0,y:0,w:IW,h:IH};
+  
+  edgeEls=E.map(([a,b])=>{
+    const l=document.createElementNS(ns,"line");
+    l.setAttribute("x1",V[a][0]*IW);l.setAttribute("y1",V[a][1]*IH);
+    l.setAttribute("x2",V[b][0]*IW);l.setAttribute("y2",V[b][1]*IH);
+    l.setAttribute("stroke-linecap","round");
+    edgeG.appendChild(l);return l;
+  });
+  
+  nodeEls=V.map((_,i)=>{
+    const g=document.createElementNS(ns,"g");g.setAttribute("data-n",i);
+    const ring=document.createElementNS(ns,"circle");
+    ring.setAttribute("fill","none");ring.setAttribute("stroke","#ffd700");
+    ring.setAttribute("stroke-width",3);ring.setAttribute("vector-effect","non-scaling-stroke");
+    ring.classList.add("ring");ring.style.display="none";
+    g.appendChild(ring);
+    const c=document.createElementNS(ns,"circle");
+    c.setAttribute("r",28);c.setAttribute("stroke-width",3);
+    c.setAttribute("vector-effect","non-scaling-stroke");c.style.cursor="pointer";
+    g.appendChild(c);
+    const nd=document.createElementNS(ns,"text");
+    nd.setAttribute("y",50);nd.setAttribute("text-anchor","middle");
+    nd.setAttribute("fill","#6bb5ff");nd.setAttribute("font-size",42);
+    nd.setAttribute("font-family","monospace");nd.setAttribute("font-weight",600);
+    nd.setAttribute("paint-order","stroke");nd.setAttribute("stroke","rgba(6,13,19,0.88)");
+    nd.setAttribute("stroke-width",14);nd.setAttribute("stroke-linejoin","round");
+    nd.style.pointerEvents="none";nd.style.display="none";
+    g.appendChild(nd);
+    if(LBL[i]){
+      const t=document.createElementNS(ns,"text");
+      t.setAttribute("y",-44);t.setAttribute("text-anchor","middle");
+      t.setAttribute("fill","#ffd700");t.setAttribute("font-size",46);
+      t.setAttribute("font-family","monospace");t.setAttribute("font-weight",700);
+      t.setAttribute("opacity",.75);t.style.pointerEvents="none";
+      t.textContent=LBL[i];g.appendChild(t);
+    }
+    nodeG.appendChild(g);return g;
+  });
+  
+  maskCircles=V.map(([x,y])=>{
+    const c=document.createElementNS(ns,"circle");
+    c.setAttribute("cx",x*IW);c.setAttribute("cy",y*IH);
+    c.setAttribute("r",FR);c.setAttribute("fill","white");
+    c.style.display="none";mask.appendChild(c);return c;
+  });
+  
+  // Load state
+  undo_stack=[];editId=null;mode="visit";
+  document.getElementById("vbtn").classList.add("on");
+  document.getElementById("nbtn").classList.remove("on");
+  document.getElementById("noted").style.display="none";
+  document.getElementById("ubtn").style.display="none";
+  load();
+  render();
+  document.getElementById("fbtn").textContent=fog?"◐ Fog":"◯ Fog";
+  document.getElementById("fbtn").classList.toggle("on",fog);
+}
+
+function switchMap(key){
+  save(); // save current map state first
+  sel.value=key;
+  buildMap(key);
+}
+
+// --- State ---
+function load(){
+  try{const d=JSON.parse(localStorage.getItem(sk()));
+    if(d){
+      vis=d.vis?new Set(d.vis):new Set();
+      cur=d.cur!=null?d.cur:null;
+      notes=d.notes||{};
+      fog=d.fog!=null?d.fog:(GS!=null);
+    }else{
+      // First visit: reveal exit nodes (degree-1 endpoints) as starting points
+      if(GS!=null){vis=new Set([GS]);cur=GS;fog=true;}
+      else{const ep=entryNodes();vis=new Set(ep);cur=ep.length?ep[0]:null;fog=true;}
+      notes={};
+    }
+  }catch(_){
+    if(GS!=null){vis=new Set([GS]);cur=GS;fog=true;}
+    else{const ep=entryNodes();vis=new Set(ep);cur=ep.length?ep[0]:null;fog=true;}
+    notes={};
+  }
+}
+function save(){localStorage.setItem(sk(),JSON.stringify({vis:[...vis],cur,notes,fog}));}
+function pushUndo(){
+  undo_stack.push({vis:[...vis],cur,notes:{...notes}});
+  if(undo_stack.length>30)undo_stack.shift();
+  document.getElementById("ubtn").style.display="";
+}
+function undo(){
+  if(!undo_stack.length)return;
+  const p=undo_stack.pop();vis=new Set(p.vis);cur=p.cur;notes=p.notes;
+  save();render();
+  if(!undo_stack.length)document.getElementById("ubtn").style.display="none";
+}
+function reset(){
+  if(GS!=null){vis=new Set([GS]);cur=GS;fog=true;}
+  else{const ep=entryNodes();vis=new Set(ep);cur=ep.length?ep[0]:null;fog=true;}
+  notes={};undo_stack=[];editId=null;
+  document.getElementById("noted").style.display="none";
+  document.getElementById("ubtn").style.display="none";
+  save();render();
+  document.getElementById("fbtn").textContent=fog?"◐ Fog":"◯ Fog";
+  document.getElementById("fbtn").classList.toggle("on",fog);
+}
+
+// --- Interaction ---
+function tapNode(id){
+  if(mode==="note"){
+    editId=id;
+    document.getElementById("nlabel").textContent="Note — "+(LBL[id]||"node "+id);
+    document.getElementById("ninput").value=notes[id]||"";
+    document.getElementById("noted").style.display="block";
+    setTimeout(()=>document.getElementById("ninput").focus(),100);
+    return;
+  }
+  pushUndo();
+  vis.add(id);cur=id;
+  // Hide unchosen entry nodes: remove EN nodes unreachable from cur
+  if(M.EN&&M.EN.length>1){
+    const reach=new Set([cur]);let ch=true;
+    while(ch){ch=false;E.forEach(([a,b])=>{
+      if(vis.has(a)&&vis.has(b)){
+        if(reach.has(a)&&!reach.has(b)){reach.add(b);ch=true;}
+        if(reach.has(b)&&!reach.has(a)){reach.add(a);ch=true;}
+      }
+    });}
+    M.EN.forEach(en=>{if(!reach.has(en)&&vis.has(en))vis.delete(en);});
+  }
+  save();render();
+}
+function saveNote(){
+  if(editId==null)return;pushUndo();
+  const t=document.getElementById("ninput").value.trim();
+  if(t)notes[editId]=t;else delete notes[editId];
+  closeNote();save();render();
+}
+function closeNote(){editId=null;document.getElementById("noted").style.display="none";mode="visit";document.getElementById("vbtn").classList.add("on");document.getElementById("nbtn").classList.remove("on");}
+function toggleFog(){
+  fog=!fog;document.getElementById("fbtn").textContent=fog?"◐ Fog":"◯ Fog";
+  document.getElementById("fbtn").classList.toggle("on",fog);save();render();
+}
+function setMode(m){
+  mode=m;document.getElementById("vbtn").classList.toggle("on",m==="visit");
+  document.getElementById("nbtn").classList.toggle("on",m==="note");
+}
+
+// --- Rendering ---
+function frontier(){
+  const f=new Set();
+  E.forEach(([a,b])=>{if(vis.has(a)&&!vis.has(b))f.add(b);if(vis.has(b)&&!vis.has(a))f.add(a);});
+  return f;
+}
+function render(){
+  const fr=frontier();
+  document.getElementById("count").textContent=vis.size+" / "+V.length;
+  V.forEach((_,i)=>{maskCircles[i].style.display=vis.has(i)?"":"none"});
+  imgEl.setAttribute("mask",fog?"url(#fmask)":"none");
+  imgEl.setAttribute("opacity",fog?"0.45":"0.55");
+  E.forEach(([a,b],i)=>{
+    const l=edgeEls[i];const av=vis.has(a),bv=vis.has(b);
+    if(fog&&!av&&!bv){l.style.display="none";return;}
+    l.style.display="";
+    if(av&&bv){l.setAttribute("stroke","rgba(45,212,168,0.6)");l.setAttribute("stroke-width",14);l.setAttribute("stroke-dasharray","none");}
+    else{l.setAttribute("stroke","rgba(45,212,168,0.35)");l.setAttribute("stroke-width",10);l.setAttribute("stroke-dasharray","18,12");}
+  });
+  V.forEach(([x,y],i)=>{
+    const g=nodeEls[i];const px=x*IW,py=y*IH;
+    const isVis=vis.has(i),isCur=cur===i,isFr=fr.has(i);
+    if(fog&&!isVis&&!isFr){g.style.display="none";return;}
+    g.style.display="";g.setAttribute("transform",`translate(${px},${py})`);
+    const c=g.children[1],ring=g.children[0],nd=g.children[2],label=g.children[3];
+    if(isCur){c.setAttribute("fill","#ffd700");c.setAttribute("stroke","#ffd700");c.setAttribute("opacity",.95);c.setAttribute("stroke-width",4);}
+    else if(isVis){c.setAttribute("fill","rgba(255,255,255,0.8)");c.setAttribute("stroke","#ffffff");c.setAttribute("opacity",.9);c.setAttribute("stroke-width",3);}
+    else{c.setAttribute("fill","transparent");c.setAttribute("stroke","rgba(255,200,100,0.7)");c.setAttribute("opacity",.85);c.setAttribute("stroke-width",2.5);}
+    ring.style.display=isCur?"":"none";
+    nd.style.display=notes[i]?"":"none";
+    if(notes[i])nd.textContent="\u{1F4DD} "+notes[i];
+    if(label)label.style.display=(isVis||!fog)?"":"none";
+  });
+  const p=document.getElementById("postext"),n=document.getElementById("notetext");
+  p.textContent=cur!=null?"\u2B24 "+(LBL[cur]||"Node "+cur):"";
+  n.textContent=cur!=null&&notes[cur]?"\u{1F4DD} "+notes[cur]:"";
+}
+
+// --- Touch / Mouse ---
+let gesture=null;
+function screenToSVG(sx,sy){
+  const pt=svg.createSVGPoint();pt.x=sx;pt.y=sy;
+  const m=svg.getScreenCTM();
+  if(!m)return{x:0,y:0};
+  return pt.matrixTransform(m.inverse());
+}
+function updateVB(){svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);}
+function findNode(sx,sy){
+  const p=screenToSVG(sx,sy);
+  const m=svg.getScreenCTM();const scale=m?m.a:1;
+  const threshold=25/scale;
+  let best=-1,bd=threshold;
+  for(let i=0;i<V.length;i++){
+    if(nodeEls[i].style.display==="none")continue;
+    const nx=V[i][0]*IW,ny=V[i][1]*IH;
+    const d=Math.hypot(nx-p.x,ny-p.y);
+    if(d<bd){bd=d;best=i;}
+  }
+  return best;
+}
+
+function attachEvents(){
+  svg.addEventListener("touchstart",e=>{
+    e.preventDefault();const t=e.touches;
+    if(t.length===1)gesture={type:"pan",sx:t[0].clientX,sy:t[0].clientY,vbx:vb.x,vby:vb.y,moved:false};
+    else if(t.length===2){
+      const d=Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+      const mx=(t[0].clientX+t[1].clientX)/2,my=(t[0].clientY+t[1].clientY)/2;
+      gesture={type:"zoom",sd:d,sw:vb.w,sh:vb.h,mx,my,sp:screenToSVG(mx,my),vbx:vb.x,vby:vb.y,moved:true};
+    }
+  },{passive:false});
+  svg.addEventListener("touchmove",e=>{
+    e.preventDefault();if(!gesture)return;const t=e.touches;
+    if(gesture.type==="pan"&&t.length===1){
+      const dx=t[0].clientX-gesture.sx,dy=t[0].clientY-gesture.sy;
+      if(Math.abs(dx)>4||Math.abs(dy)>4)gesture.moved=true;
+      const m=svg.getScreenCTM();if(!m)return;
+      vb.x=gesture.vbx-dx/m.a;vb.y=gesture.vby-dy/m.d;updateVB();
+    }else if(gesture.type==="zoom"&&t.length===2){
+      const d=Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+      const scale=gesture.sd/d;
+      const nw=Math.max(500,Math.min(IW*2,gesture.sw*scale)),nh=nw*(IH/IW);
+      vb.w=nw;vb.h=nh;
+      vb.x=gesture.sp.x-(gesture.sp.x-gesture.vbx)*(nw/gesture.sw);
+      vb.y=gesture.sp.y-(gesture.sp.y-gesture.vby)*(nh/gesture.sh);updateVB();
+    }
+  },{passive:false});
+  svg.addEventListener("touchend",e=>{
+    if(gesture&&!gesture.moved&&e.changedTouches.length){
+      const t=e.changedTouches[0],n=findNode(t.clientX,t.clientY);
+      if(n>=0)tapNode(n);
+    }
+    if(!e.touches.length)gesture=null;
+  });
+  svg.addEventListener("mousedown",e=>{gesture={type:"pan",sx:e.clientX,sy:e.clientY,vbx:vb.x,vby:vb.y,moved:false};});
+  svg.addEventListener("mousemove",e=>{
+    if(!gesture||gesture.type!=="pan")return;
+    const dx=e.clientX-gesture.sx,dy=e.clientY-gesture.sy;
+    if(Math.abs(dx)>4||Math.abs(dy)>4)gesture.moved=true;
+    const m=svg.getScreenCTM();if(!m)return;
+    vb.x=gesture.vbx-dx/m.a;vb.y=gesture.vby-dy/m.d;updateVB();
+  });
+  svg.addEventListener("mouseup",e=>{
+    if(gesture&&!gesture.moved){const n=findNode(e.clientX,e.clientY);if(n>=0)tapNode(n);}
+    gesture=null;
+  });
+  svg.addEventListener("wheel",e=>{
+    e.preventDefault();const f=e.deltaY>0?1.02:0.98;
+    const p=screenToSVG(e.clientX,e.clientY);
+    const nw=Math.max(500,Math.min(IW*2,vb.w*f)),nh=nw*(IH/IW);
+    vb.x=p.x-(p.x-vb.x)*(nw/vb.w);vb.y=p.y-(p.y-vb.y)*(nh/vb.h);
+    vb.w=nw;vb.h=nh;updateVB();
+  },{passive:false});
+}
+
+// --- Init ---
+buildMap("central_reef");
+</script>
+</body>
+</html>
