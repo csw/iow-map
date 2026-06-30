@@ -191,37 +191,66 @@ def extract_graph(line_mask, dp_epsilon=5, min_component=3):
 
 
 def detect_triangle_markers(image_array, line_mask, vertices, edges,
-                            near_threshold=40, min_area=20, max_area=300,
+                            near_threshold=40, min_area=20, max_area=80,
                             buffer_px=25):
     """Detect yellow triangle markers on paths to find mid-segment vertices.
-    
+
+    Triangle markers are uniform equilateral triangles drawn underneath the
+    red annotation.  Their visible yellow portions (tips flanking the red
+    line) are solid crescents directly adjacent to the red mask.
+
+    Three kinds of yellow features appear near the path and must be rejected:
+      1. Creature-dot clusters — diamond-shaped, hollow center (Euler ≤ 0),
+         area typically 100-200 px.
+      2. In-game navigation lines — very elongated (eccentricity ≈ 1).
+      3. Stray dots — not adjacent to the red mask (min distance > 2 px).
+
     Returns list of (x, y) positions for markers not near any existing vertex.
     """
+    from scipy.ndimage import distance_transform_edt
+
     h, w = image_array.shape[:2]
-    
-    # Yellow pixels: high R, high G, low B
+
     yellow = ((image_array[:,:,0].astype(int) > 160) &
               (image_array[:,:,1].astype(int) > 160) &
               (image_array[:,:,2].astype(int) < 100))
-    
-    # Keep only yellow pixels near the path
+
     path_buffer = dilation(line_mask, disk(buffer_px))
     on_path_yellow = yellow & path_buffer
-    
-    # Cluster
+
     labeled = label(on_path_yellow)
     regions = regionprops(labeled)
-    markers = [(int(r.centroid[1]), int(r.centroid[0]), int(r.area))
-               for r in regions if min_area <= r.area <= max_area]
-    print(f"  Triangle markers: {len(markers)} (area {min_area}-{max_area})")
-    
-    # Filter to markers not near existing vertices
+    dist_to_red = distance_transform_edt(~line_mask)
+
+    candidates = []
+    n_area = n_euler = n_ecc = n_dist = 0
+    for r in regions:
+        area = int(r.area)
+        if area < min_area or area > max_area:
+            n_area += 1
+            continue
+        if int(r.euler_number) <= 0:
+            n_euler += 1
+            continue
+        if float(r.eccentricity) > 0.98:
+            n_ecc += 1
+            continue
+        region_dists = dist_to_red[labeled == r.label]
+        if region_dists.min() > 1:
+            n_dist += 1
+            continue
+        candidates.append((int(r.centroid[1]), int(r.centroid[0])))
+
+    print(f"  Triangle markers: {len(candidates)} candidates "
+          f"(rejected: {n_area} area, {n_euler} hollow, "
+          f"{n_ecc} elongated, {n_dist} off-path)")
+
     new_markers = []
-    for mx, my, area in markers:
+    for mx, my in candidates:
         min_d = min(((vx-mx)**2 + (vy-my)**2)**0.5 for vx, vy in vertices)
         if min_d > near_threshold:
             new_markers.append((mx, my))
-    
+
     print(f"  New mid-segment markers: {len(new_markers)} (>{near_threshold}px from existing)")
     return new_markers
 

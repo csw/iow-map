@@ -150,7 +150,42 @@ def _add_edge_between(verts_px, edges, px_a, px_b, max_dist=30):
     return edges
 
 
+def _remove_edge_between(verts_px, edges, px_a, px_b, max_dist=30):
+    """Remove the edge between the two vertices nearest to px_a and px_b."""
+    va = _find_nearest_vertex(verts_px, px_a, max_dist)
+    vb = _find_nearest_vertex(verts_px, px_b, max_dist)
+    if va is None or vb is None:
+        print(f"  WARN: can't remove edge {px_a}→{px_b}: vertex not found")
+        return edges
+    target = tuple(sorted([va, vb]))
+    new_edges = [e for e in edges if tuple(sorted(e)) != target]
+    if len(new_edges) < len(edges):
+        print(f"  Removed edge v{va}↔v{vb}")
+    else:
+        print(f"  WARN: edge v{va}↔v{vb} not found")
+    return new_edges
+
+
 # ─── Per-Map Corrections ───────────────────────────────────────────────────
+
+def _correct_east_reef(verts_px, edges, w, h):
+    """Fix spurious diagonal edges in the skeleton graph.
+
+    The triangle detection false positives (creature dots, yellow nav lines)
+    are now handled by shape filters in detect_triangle_markers().  Only the
+    base-skeleton edge errors remain.
+    """
+    edges = _remove_edge_between(verts_px, edges,
+                                 (2862, 839), (2832, 969), max_dist=40)  # v5↔v10
+    edges = _remove_edge_between(verts_px, edges,
+                                 (2862, 839), (2984, 928), max_dist=40)  # v5↔v8
+    edges = _remove_edge_between(verts_px, edges,
+                                 (2832, 969), (2935, 1093), max_dist=40)  # v10↔v16
+    edges = _remove_edge_between(verts_px, edges,
+                                 (2832, 969), (2801, 1155), max_dist=40)  # v10↔v17
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (2842, 1308))  # skeleton artifact on green terrain
+    return verts_px, edges
+
 
 def _correct_the_bloom_main(verts_px, edges, w, h):
     """Add green path segment connecting two red-line endpoints."""
@@ -171,6 +206,7 @@ def _correct_the_bloom_site_2_level_3(verts_px, edges, w, h):
 
 # Register corrections (only maps that need them)
 GRAPH_CORRECTIONS = {
+    "east_reef": _correct_east_reef,
     "the_bloom_main": _correct_the_bloom_main,
     "the_bloom_site_2_level_3": _correct_the_bloom_site_2_level_3,
 }
@@ -369,12 +405,11 @@ MAP_METADATA = {
 
 KNOWN_ISSUES = {
     "east_reef": (
-        "Creature dot clusters (small dark circles) sit on the red graph "
-        "lines and are picked up by fuzzy select, creating spurious skeleton "
-        "junctions and missing real edges. Affected areas: Petal Shoot, "
-        "Shed Feather, Silken Strands. Best fixed with a VLM correction "
-        "pass — analyze numbered overlay, identify spurious vertices and "
-        "missing edges, add to GRAPH_CORRECTIONS."
+        "Triangle detection false positives (creature dots, yellow nav lines) "
+        "now handled by shape filters in detect_triangle_markers(). 4 spurious "
+        "diagonal edges still corrected manually. Some labeled vertices "
+        "(Canopy Root, Bright Pollen, Shed Tail, Shed Feather) have no vertex "
+        "within 80px."
     ),
     "brine_pool": (
         "Triangle detection disabled because creature blobs sit directly "

@@ -20,8 +20,10 @@ Requires: scikit-image, Pillow, scipy, numpy
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 # Add tools/ to path so we can import corrections
@@ -48,14 +50,13 @@ MAP_ORDER = [
 
 
 def extract_map(map_key, overlay_dir=None):
-    """Run extract_graph.py for a single map."""
+    """Run extract_graph.py for a single map. Returns (map_key, ok, lines)."""
     cfg = EXTRACTION_CONFIG[map_key]
     img_path = MAPS_DIR / f"{map_key}.jpg"
     out_path = GRAPHS_DIR / f"{map_key}_graph.json"
 
     if not img_path.exists():
-        print(f"  SKIP: {img_path} not found")
-        return False
+        return (map_key, False, [f"  SKIP: {img_path} not found"])
 
     cmd = [
         sys.executable, str(EXTRACT_SCRIPT), str(img_path),
@@ -73,18 +74,17 @@ def extract_map(map_key, overlay_dir=None):
         overlay_path = Path(overlay_dir) / f"{map_key}_overlay.png"
         cmd.extend(["--overlay", str(overlay_path)])
 
-    print(f"  Extracting {map_key}...")
     result = subprocess.run(cmd, capture_output=True, text=True)
+    lines = [f"  Extracting {map_key}..."]
     if result.returncode != 0:
-        print(f"  ERROR: {result.stderr[:200]}")
-        return False
+        lines.append(f"  ERROR: {result.stderr[:200]}")
+        return (map_key, False, lines)
 
-    # Print key stats
     for line in result.stdout.split("\n"):
         if any(k in line for k in ["Result:", "After merge:", "After insertion:"]):
-            print(f"    {line.strip()}")
+            lines.append(f"    {line.strip()}")
 
-    return True
+    return (map_key, True, lines)
 
 
 def apply_corrections_to_graph(map_key):
@@ -199,14 +199,29 @@ def main():
     if args.overlay_dir:
         Path(args.overlay_dir).mkdir(parents=True, exist_ok=True)
 
-    # Step 1: Extract
+    # Step 1: Extract (parallel — each map is an independent subprocess)
     if not args.skip_extract:
         print("=== Step 1: Extract graphs ===")
-        for key in maps_to_process:
-            if key not in EXTRACTION_CONFIG:
-                print(f"  SKIP: unknown map '{key}'")
-                continue
-            extract_map(key, overlay_dir=args.overlay_dir)
+        extract_keys = [k for k in maps_to_process if k in EXTRACTION_CONFIG]
+        unknown = [k for k in maps_to_process if k not in EXTRACTION_CONFIG]
+        for k in unknown:
+            print(f"  SKIP: unknown map '{k}'")
+
+        workers = min(len(extract_keys), os.cpu_count() or 4)
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(extract_map, k, args.overlay_dir): k
+                for k in extract_keys
+            }
+            results = {}
+            for fut in as_completed(futures):
+                key, ok, lines = fut.result()
+                results[key] = (ok, lines)
+
+        for key in extract_keys:
+            ok, lines = results[key]
+            for line in lines:
+                print(line)
 
     # Step 2: Apply corrections
     print("\n=== Step 2: Apply corrections ===")
