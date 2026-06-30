@@ -206,6 +206,13 @@ def _correct_the_bloom_main(verts_px, edges, w, h):
     # no vertex at all in this dark-background area (nearest existing vertex
     # is 137px away). Insert one and connect it to that nearest vertex.
     verts_px, edges = _add_vertex(verts_px, edges, (409, 3243))
+    # v58 (1723,2542) and v59 (1723,2574) are a single raster junction (a
+    # triangle marker) split into two 32px-apart vertices, each carrying two
+    # of the four converging edges. Reconnect v59's edges to v58 and remove
+    # v59.
+    edges = _add_edge_between(verts_px, edges, (1723, 2542), (1629, 2716))
+    edges = _add_edge_between(verts_px, edges, (1723, 2542), (2329, 2762))
+    verts_px, edges = _remove_vertex_near(verts_px, edges, (1723, 2574))
     return verts_px, edges
 
 
@@ -218,6 +225,10 @@ def _correct_brine_pool(verts_px, edges, w, h):
     # v76 (172,2674) — all near-collinear within ~90px, a spurious split
     # of what should be a single edge.
     verts_px, edges = _remove_vertex_near(verts_px, edges, (226, 2665))
+    # v20 (1495,1878) and v23 (1360,1985): a real raster shortcut edge
+    # between these two junctions was never extracted (found via
+    # find_missing_edges.py flagging an uncovered diagonal line segment).
+    edges = _add_edge_between(verts_px, edges, (1495, 1878), (1360, 1985))
     return verts_px, edges
 
 
@@ -402,6 +413,7 @@ MAP_METADATA = {
             (1714, 2788): "Mucus Bubble",       # v51
             (1583, 2841): "Young Carapace",     # v52
             (1780, 2950): "Brine Shell",        # v53
+            (1532, 1528): "ROV Site",           # v12; blue connector line to "ROV SITE" text, was missing from labels_px entirely
         },
     },
     "the_anomaly_lower_level": {
