@@ -367,10 +367,12 @@ function toggleInfo(e,force){
   b.classList.toggle("on",show);
   b.setAttribute("aria-expanded",show?"true":"false");
 }
-document.addEventListener("click",e=>{
+function closeInfoIfOutside(e){
   const p=document.getElementById("infopanel");
   if(p&&p.classList.contains("show")&&!p.contains(e.target)&&e.target.id!=="infobtn")toggleInfo(null,false);
-});
+}
+document.addEventListener("click",closeInfoIfOutside);
+document.addEventListener("touchstart",closeInfoIfOutside);
 function setMode(m){
   mode=m;document.getElementById("vbtn").classList.toggle("on",m==="visit");
   document.getElementById("nbtn").classList.toggle("on",m==="note");
