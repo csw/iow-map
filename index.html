@@ -64,7 +64,7 @@ html,body{height:100%;overflow:hidden;background:#12191f;color:#2dd4a8;
 #mapsel{background:#0a1520;border:1px solid rgba(45,212,168,.3);color:#2dd4a8;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;cursor:pointer;max-width:140px}
 #map{flex:1;overflow:hidden;position:relative}
 #info{display:flex;align-items:center;gap:10px;font-size:11px;min-width:0;overflow:hidden}
-#info .pos{color:#ffd700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0}
+#info .pos{color:#ffd700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;cursor:pointer}
 #info .pos .curicon{font-size:16px;line-height:1}
 #info .note{color:#6bb5ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #bar{padding:7px 12px;border-top:1px solid rgba(45,212,168,.2);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;flex-wrap:wrap}
@@ -122,7 +122,7 @@ html,body{height:100%;overflow:hidden;background:#12191f;color:#2dd4a8;
     </div>
   </div>
   <div id="bar">
-    <div id="info"><span class="pos" id="postext"></span><span class="note" id="notetext"></span></div>
+    <div id="info"><span class="pos" id="postext" onclick="centerOnCurrent()" title="Center view on current node"></span><span class="note" id="notetext"></span></div>
     <div class="modebtns">
       <button class="mbtn visit on" id="vbtn" onclick="setMode('visit')">◉ Tap to visit</button>
       <button class="mbtn note" id="nbtn" onclick="setMode('note')">✎ Add note</button>
@@ -158,6 +158,7 @@ let M=MAPS[curMap]; // active map data
 let V,E,LBL,IW,IH,GS,FR,IMG;
 let vis,cur,notes,fog,mode="visit",editId=null,undo_stack=[];
 let vb,nodeEls=[],edgeEls=[],maskCircles=[];
+const MIN_W=1800; // max initial zoom-in, in image px
 
 const mapEl=document.getElementById("map");
 const ns="http://www.w3.org/2000/svg";
@@ -452,7 +453,6 @@ function fitToRevealed(){
   });
   if(!any){vb={x:0,y:0,w:IW,h:IH};return;}
   minX-=FR;maxX+=FR;minY-=FR;maxY+=FR; // one extra radius of breathing room
-  const MIN_W=1800;
   const aspect=IH/IW;
   let w=Math.max(maxX-minX,MIN_W);
   let h=Math.max(maxY-minY,MIN_W*aspect);
@@ -462,6 +462,13 @@ function fitToRevealed(){
 }
 function updateVB(){
   svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+}
+function centerOnCurrent(){
+  if(cur==null)return;
+  const[x,y]=V[cur],px=x*IW,py=y*IH;
+  const w=MIN_W,h=w*(IH/IW);
+  vb={x:px-w/2,y:py-h/2,w,h};
+  updateVB();
 }
 function findNode(sx,sy){
   const p=screenToSVG(sx,sy);
