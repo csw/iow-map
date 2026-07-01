@@ -32,6 +32,7 @@ from corrections import (
     EXTRACTION_CONFIG, MAP_METADATA, KNOWN_ISSUES,
     apply_corrections, resolve_labels, resolve_en, resolve_gs,
 )
+from vertex_ids import reconcile_stable_ids
 
 ROOT = Path(__file__).parent.parent
 MAPS_DIR = ROOT / "maps"
@@ -101,11 +102,17 @@ def apply_corrections_to_graph(map_key):
 
     verts_px, edges = apply_corrections(map_key, verts_px, edges, w, h)
 
+    # Re-index against the map's persisted vertex-id snapshot so every
+    # vertex keeps the same array index across re-extractions, even if
+    # extraction params/library versions change and reorder things.
+    verts_px, edges, dead = reconcile_stable_ids(map_key, verts_px, edges, GRAPHS_DIR)
+
     verts_norm = [[round(x / w, 4), round(y / h, 4)] for x, y in verts_px]
 
     data["vertices"] = verts_norm
     data["vertices_px"] = verts_px
     data["edges"] = edges
+    data["dead"] = dead
 
     return data
 
@@ -138,6 +145,17 @@ def build_html(output_path, corrected_graphs):
 
         img_url = f"maps/{key}.jpg"
 
+        # Vertices with no edges are "retired" (see corrections.py
+        # RETIRED_VERTICES) or vanished from extraction (see vertex_ids.py)
+        # — kept in the array to preserve every other vertex's index, but
+        # excluded from the app's node count/rendering.
+        touched = set()
+        for a, b in g["edges"]:
+            touched.add(a)
+            touched.add(b)
+        degree0 = (i for i in range(len(g["vertices"])) if i not in touched)
+        dead = sorted(set(degree0) | set(g.get("dead", [])))
+
         parts = [f'name:"{meta["name"]}"']
         if en is not None:
             parts.append(f"EN:{json.dumps(en)}")
@@ -156,11 +174,14 @@ def build_html(output_path, corrected_graphs):
         parts.append(f"LBL:{lbl_js}")
         parts.append(f"V:{json.dumps(g['vertices'])}")
         parts.append(f"E:{json.dumps(g['edges'])}")
+        if dead:
+            parts.append(f"D:{json.dumps(dead)}")
 
         maps_entries.append(f"  {key}:{{{','.join(parts)}}}")
 
         print(f"  {meta['name']:25s} {len(g['vertices']):3d}v {len(g['edges']):3d}e "
-              f" {len(lbl)} labels  EN={en}  GS={gs}")
+              f" {len(lbl)} labels  EN={en}  GS={gs}"
+              + (f"  dead={dead}" if dead else ""))
 
     maps_js = "const MAPS={\n" + ",\n".join(maps_entries) + "\n};"
     html = template.replace("/* __MAPS_DATA__ */", maps_js)

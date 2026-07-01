@@ -145,7 +145,7 @@ MAPORDER.forEach(k=>{const o=document.createElement("option");o.value=k;o.textCo
 // Current map state
 let curMap="central_reef";
 let M=MAPS[curMap]; // active map data
-let V,E,LBL,IW,IH,GS,FR,IMG;
+let V,E,LBL,IW,IH,GS,FR,IMG,DEAD;
 let vis,cur,notes,fog,mode="visit",editId=null,undo_stack=[];
 let vb,nodeEls=[],edgeEls=[],maskCircles=[];
 const MIN_W=1800; // max initial zoom-in, in image px
@@ -181,6 +181,7 @@ function initSVG(){
 function buildMap(key){
   curMap=key;M=MAPS[key];
   V=M.V;E=M.E;LBL=M.LBL;IW=M.IW;IH=M.IH;GS=M.GS;FR=M.FR;IMG=M.img;
+  DEAD=new Set(M.D||[]); // retired vertices: index preserved, excluded from count/rendering
   
   initSVG();
   svg.setAttribute("viewBox",`0 0 ${IW} ${IH}`);
@@ -389,7 +390,7 @@ function frontier(){
 }
 function render(){
   const fr=frontier();
-  document.getElementById("count").textContent=vis.size+" / "+V.length;
+  document.getElementById("count").textContent=vis.size+" / "+(V.length-DEAD.size);
   const enSet=M.EN?new Set(M.EN):null;
   V.forEach((_,i)=>{maskCircles[i].setAttribute("r",(vis.has(i)||(enSet&&enSet.has(i)))?FR:0)});
   imgEl.setAttribute("mask",fog?"url(#fmask)":"none");
@@ -402,7 +403,9 @@ function render(){
     else{l.setAttribute("stroke","rgba(45,212,168,0.35)");l.setAttribute("stroke-width",10);l.setAttribute("stroke-dasharray","18,12");}
   });
   V.forEach(([x,y],i)=>{
-    const g=nodeEls[i];const px=x*IW,py=y*IH;
+    const g=nodeEls[i];
+    if(DEAD.has(i)){g.style.display="none";return;}
+    const px=x*IW,py=y*IH;
     const isVis=vis.has(i),isCur=cur===i,isFr=fr.has(i);
     const isEN=M.EN&&M.EN.includes(i);
     if(fog&&!isVis&&!isFr&&!isEN){g.style.display="none";return;}

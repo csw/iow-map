@@ -104,7 +104,14 @@ def _find_nearest_vertex(verts_px, target_px, max_dist=30):
 
 
 def _remove_vertex_near(verts_px, edges, target_px, max_dist=30):
-    """Remove a vertex near target_px, connecting its two neighbors."""
+    """Remove a vertex near target_px, connecting its two neighbors.
+
+    NOTE: this renumbers every vertex after the removed index, which is only
+    safe pre-deployment (rebuilding with an unchanged corrections.py still
+    reproduces the exact same indices as what's already live). Do NOT use
+    this for new corrections now that the app is deployed with real saved
+    progress — use _retire_vertex_near() instead, which never shifts any
+    other vertex's index."""
     idx = _find_nearest_vertex(verts_px, target_px, max_dist)
     if idx is None:
         print(f"  WARN: no vertex near {target_px} (max_dist={max_dist})")
@@ -131,6 +138,39 @@ def _remove_vertex_near(verts_px, edges, target_px, max_dist=30):
 
     print(f"  Removed vertex near {target_px} (was v{idx})")
     return new_verts, new_edges
+
+
+def _retire_vertex_near(verts_px, edges, target_px, max_dist=30):
+    """Remove a vertex's edges (bridging its two neighbors, same logic as
+    _remove_vertex_near) WITHOUT renumbering anything. The vertex stays in
+    verts_px at its original index — now a dead, edgeless entry — so every
+    other vertex keeps the exact index it already has.
+
+    Use this instead of _remove_vertex_near for any post-deployment fix: the
+    app's saved fog-of-war progress (localStorage) references vertices by
+    array index, so shifting indices would silently reassign a different
+    vertex to everyone who already visited it. Record the retired index in
+    RETIRED_VERTICES below so it's never reused."""
+    idx = _find_nearest_vertex(verts_px, target_px, max_dist)
+    if idx is None:
+        print(f"  WARN: no vertex near {target_px} (max_dist={max_dist})")
+        return verts_px, edges
+
+    neighbors = []
+    for a, b in edges:
+        if a == idx:
+            neighbors.append(b)
+        elif b == idx:
+            neighbors.append(a)
+
+    new_edges = [e for e in edges if idx not in e]
+    if len(neighbors) == 2:
+        bridge = sorted(neighbors)
+        if bridge not in new_edges:
+            new_edges.append(bridge)
+
+    print(f"  Retired vertex v{idx} near {target_px} (index preserved, now dead)")
+    return verts_px, new_edges
 
 
 def _add_vertex(verts_px, edges, px, connect_to=None, max_dist=200):
@@ -181,7 +221,32 @@ def _remove_edge_between(verts_px, edges, px_a, px_b, max_dist=30):
     return new_edges
 
 
+# ─── Retired Vertices ───────────────────────────────────────────────────────
+# Indices retired via _retire_vertex_near(), by map. These indices are dead
+# (edgeless) in the final graph and MUST NEVER be reused for a new vertex —
+# doing so would silently reassign a different vertex to any player who has
+# already visited it in their saved fog-of-war progress. build.py detects
+# dead vertices automatically (degree 0 after corrections) and excludes them
+# from the app's node count/rendering/click-targets; this dict is just the
+# human-readable record of what was retired and why.
+RETIRED_VERTICES = {
+    "central_reef": {166},  # animal-dot-cluster artifact on the v87-v154 line
+}
+
+
 # ─── Per-Map Corrections ───────────────────────────────────────────────────
+
+def _correct_central_reef(verts_px, edges, w, h):
+    """v166 (2646,3286) is a spurious extra point sitting directly on the
+    straight raster line between the real triangle-marker vertices v87
+    (2630,3230) and v154 (2666,3392) — a yellow flower-dot cluster overlaps
+    the line right at this point and appears to have thrown off path
+    simplification. Retire it (bridging v87-v154 directly) rather than
+    removing it outright, since the app is already deployed and vertex
+    indices must stay stable across builds."""
+    verts_px, edges = _retire_vertex_near(verts_px, edges, (2646, 3286))
+    return verts_px, edges
+
 
 def _correct_east_reef(verts_px, edges, w, h):
     """Near Silken Strands, creature dot clusters sharing the line color
@@ -323,6 +388,7 @@ def _correct_the_anomaly_upper_level(verts_px, edges, w, h):
 
 
 GRAPH_CORRECTIONS = {
+    "central_reef": _correct_central_reef,
     "east_reef": _correct_east_reef,
     "the_bloom_main": _correct_the_bloom_main,
     "dusk_slopes": _correct_dusk_slopes,
