@@ -34,7 +34,9 @@ SETUP_JS = """
     }
   }
   vis = visited;
-  cur = [...visited][visited.size - 3]; // a node partway along the chain, not the very end
+  const chain = [...visited];
+  const unlabeled = chain.filter(i => !LBL[i]); // avoid landing the marker under a label
+  cur = unlabeled[unlabeled.length - 3] ?? chain[chain.length - 3];
   fog = true;
   save();
   buildMap('central_reef');
