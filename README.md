@@ -1,18 +1,22 @@
 # In Other Waters: Map Tracker
 
-**[Open the live map →](https://csw.github.io/iow-map/)**
+**[Open the live map at csw.github.io/iow-map/][live]**
 
-Interactive fog-of-war map tracker for *In Other Waters*. The game has no in-game map while diving, so this tool lets you track visited nodes, see frontier nodes, and take notes across all 11 map areas.
+Interactive, incremental map tracker for [*In Other Waters*][game]. The game only shows you the immediate area you're in, and you have to keep track of the paths you've explored in your head. There are maps available, but seeing the whole map undermines the exploration aspect of the game. This tool reveals the map as you explore, and only shows you what you've seen, marking the paths you've taken. It also lets you track your current position and make notes.
 
 ![Screenshot of the map tracker showing a partially-revealed Central Reef](assets/screenshot.png)
 
-This uses the excellent [maps](https://steamcommunity.com/sharedfiles/filedetails/?id=2784267318) created by, er, [Hugh Janis](https://steamcommunity.com/profiles/76561198128927251) and posted as a Steam community guide.
+The locations you've visited are stored in your browser.
+
+This uses the excellent [maps](https://steamcommunity.com/sharedfiles/filedetails/?id=2784267318) created by, er, '[Hugh Janis](https://steamcommunity.com/profiles/76561198128927251)' and posted as a Steam community guide.
+
+[game]: https://www.fellowtraveller.games/in-other-waters
 
 ## Quick Start
 
-**Use directly:** Download `iow-map.html` and open it (images load from S3).
+**Use live site**: Visit [csw.github.io/iow-map/][live].
 
-**GitHub Pages:** Push to main → auto-deploys. Add your map JPEGs to `maps/`.
+**Use locally:** Open `index.html`.
 
 ### Controls
 
@@ -48,6 +52,12 @@ See `docs/HANDOFF.md` for full architecture documentation.
 | `tools/build_all.py` | Master build script |
 | `graphs/*.json` | Extracted + corrected graph data |
 
+## Release
+
+**GitHub Pages:** Push to main → auto-deploys.
+
 ## License
 
 MIT
+
+[live]: https://csw.github.io/iow-map/
