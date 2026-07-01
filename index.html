@@ -176,8 +176,8 @@ function buildMap(key){
   maskCircles=V.map(([x,y])=>{
     const c=document.createElementNS(ns,"circle");
     c.setAttribute("cx",x*IW);c.setAttribute("cy",y*IH);
-    c.setAttribute("r",FR);c.setAttribute("fill","white");
-    c.style.display="none";mask.appendChild(c);return c;
+    c.setAttribute("r",0);c.setAttribute("fill","white");
+    mask.appendChild(c);return c;
   });
   
   // Load state
@@ -301,7 +301,7 @@ function render(){
   const fr=frontier();
   document.getElementById("count").textContent=vis.size+" / "+V.length;
   const enSet=M.EN?new Set(M.EN):null;
-  V.forEach((_,i)=>{maskCircles[i].style.display=(vis.has(i)||(enSet&&enSet.has(i)))?"":"none"});
+  V.forEach((_,i)=>{maskCircles[i].setAttribute("r",(vis.has(i)||(enSet&&enSet.has(i)))?FR:0)});
   imgEl.setAttribute("mask",fog?"url(#fmask)":"none");
   imgEl.setAttribute("opacity",fog?"0.45":"0.55");
   E.forEach(([a,b],i)=>{
