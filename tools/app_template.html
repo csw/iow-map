@@ -10,6 +10,9 @@
 <link rel="canonical" href="https://csw.github.io/iow-map/">
 <meta name="theme-color" content="#12191f">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2312191f'/%3E%3Ccircle cx='50' cy='50' r='34' fill='none' stroke='%232dd4a8' stroke-width='7'/%3E%3Ccircle cx='50' cy='50' r='11' fill='%23ffd700'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="In Other Waters: Interactive Map">
 <meta property="og:title" content="In Other Waters: Interactive Map">
@@ -26,7 +29,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;background:#12191f;color:#2dd4a8;
-  font-family:'SF Mono',Menlo,'Courier New',monospace;
+  font-family:'JetBrains Mono','SF Mono',Menlo,'Courier New',monospace;
   touch-action:none;user-select:none;-webkit-user-select:none;
   overscroll-behavior:none}
 #app{display:flex;flex-direction:column;height:100dvh;height:100vh}
@@ -225,7 +228,7 @@ function buildMap(key){
     const nd=document.createElementNS(ns,"text");
     nd.setAttribute("y",50);nd.setAttribute("text-anchor","middle");
     nd.setAttribute("fill","#6bb5ff");nd.setAttribute("font-size",42);
-    nd.setAttribute("font-family","monospace");nd.setAttribute("font-weight",600);
+    nd.setAttribute("font-family","'JetBrains Mono',monospace");nd.setAttribute("font-weight",600);
     nd.setAttribute("paint-order","stroke");nd.setAttribute("stroke","rgba(6,13,19,0.88)");
     nd.setAttribute("stroke-width",14);nd.setAttribute("stroke-linejoin","round");
     nd.style.pointerEvents="none";nd.style.display="none";
@@ -234,7 +237,7 @@ function buildMap(key){
       const t=document.createElementNS(ns,"text");
       t.setAttribute("y",-44);t.setAttribute("text-anchor","middle");
       t.setAttribute("fill","#ffd700");t.setAttribute("font-size",46);
-      t.setAttribute("font-family","monospace");t.setAttribute("font-weight",700);
+      t.setAttribute("font-family","'JetBrains Mono',monospace");t.setAttribute("font-weight",700);
       t.setAttribute("opacity",.75);t.style.pointerEvents="none";
       t.textContent=LBL[i];g.appendChild(t);
     }
