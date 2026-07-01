@@ -10,3 +10,7 @@ build-all:
 # Regenerate assets/og-image.jpg from a live render of the app
 og-image:
     uv run python tools/gen_og_image.py
+
+# Regenerate assets/screenshot.png (README) from a live render of the app
+screenshot:
+    uv run python tools/gen_screenshot.py
