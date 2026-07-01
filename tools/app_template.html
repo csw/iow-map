@@ -197,12 +197,18 @@ function load(){
     }else{
       // First visit: reveal exit nodes (degree-1 endpoints) as starting points
       if(GS!=null){vis=new Set([GS]);cur=GS;fog=true;}
-      else{const ep=entryNodes();vis=new Set(ep);cur=ep.length?ep[0]:null;fog=true;}
+      else{const ep=entryNodes();
+        if(ep.length===1){vis=new Set(ep);cur=ep[0];}
+        else{vis=new Set();cur=null;}
+        fog=true;}
       notes={};
     }
   }catch(_){
     if(GS!=null){vis=new Set([GS]);cur=GS;fog=true;}
-    else{const ep=entryNodes();vis=new Set(ep);cur=ep.length?ep[0]:null;fog=true;}
+    else{const ep=entryNodes();
+      if(ep.length===1){vis=new Set(ep);cur=ep[0];}
+      else{vis=new Set();cur=null;}
+      fog=true;}
     notes={};
   }
 }
@@ -220,7 +226,10 @@ function undo(){
 }
 function reset(){
   if(GS!=null){vis=new Set([GS]);cur=GS;fog=true;}
-  else{const ep=entryNodes();vis=new Set(ep);cur=ep.length?ep[0]:null;fog=true;}
+  else{const ep=entryNodes();
+    if(ep.length===1){vis=new Set(ep);cur=ep[0];}
+    else{vis=new Set();cur=null;}
+    fog=true;}
   notes={};undo_stack=[];editId=null;
   document.getElementById("noted").style.display="none";
   document.getElementById("ubtn").style.display="none";
@@ -292,7 +301,8 @@ function render(){
   V.forEach(([x,y],i)=>{
     const g=nodeEls[i];const px=x*IW,py=y*IH;
     const isVis=vis.has(i),isCur=cur===i,isFr=fr.has(i);
-    if(fog&&!isVis&&!isFr){g.style.display="none";return;}
+    const isEN=M.EN&&M.EN.includes(i);
+    if(fog&&!isVis&&!isFr&&!isEN){g.style.display="none";return;}
     g.style.display="";g.setAttribute("transform",`translate(${px},${py})`);
     const c=g.children[1],ring=g.children[0],nd=g.children[2],label=g.children[3];
     if(isCur){c.setAttribute("fill","#ffd700");c.setAttribute("stroke","#ffd700");c.setAttribute("opacity",.95);c.setAttribute("stroke-width",4);}
@@ -301,7 +311,7 @@ function render(){
     ring.style.display=isCur?"":"none";
     nd.style.display=notes[i]?"":"none";
     if(notes[i])nd.textContent="\u{1F4DD} "+notes[i];
-    if(label)label.style.display=(isVis||!fog)?"":"none";
+    if(label)label.style.display=(isVis||!fog||isEN)?"":"none";
   });
   const p=document.getElementById("postext"),n=document.getElementById("notetext");
   p.textContent=cur!=null?"\u2B24 "+(LBL[cur]||"Node "+cur):"";
