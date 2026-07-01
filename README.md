@@ -35,7 +35,7 @@ uv sync
 just build-all
 ```
 
-This runs the full pipeline: extract graphs from map images → apply manual corrections → generate HTML. Both `iow-map.html` and `index.html` are always regenerated together.
+This runs the full pipeline: extract graphs from map images → apply manual corrections → generate `index.html`.
 
 After editing `tools/app_template.html` or `tools/corrections.py`, skip re-extraction with `just build`.
 
@@ -45,11 +45,10 @@ See `docs/HANDOFF.md` for full architecture documentation.
 
 | Path | Description |
 |------|-------------|
-| `iow-map.html` | Standalone app (S3 image URLs, for phone use) |
 | `index.html` | GitHub Pages app (relative `maps/` paths) |
 | `tools/corrections.py` | **Source of truth** for all manual adjustments and metadata |
 | `tools/extract_graph.py` | Graph extraction: fuzzy select → skeletonize → Douglas-Peucker |
-| `tools/build_all.py` | Master build script |
+| `tools/build.py` | Master build script |
 | `graphs/*.json` | Extracted + corrected graph data |
 
 ## Release

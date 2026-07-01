@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Critical Rule
 
-**Never edit `iow-map.html` or `index.html` directly** — both are generated. All changes go into `tools/corrections.py` (graph fixes) or `tools/app_template.html` (UI changes), then rebuild. A rebuild always regenerates **both** `iow-map.html` and `index.html` together — there is no supported way to rebuild just one.
+**Never edit `index.html` directly** — it is generated. All changes go into `tools/corrections.py` (graph fixes) or `tools/app_template.html` (UI changes), then rebuild.
 
 ## Build Commands
 
@@ -17,10 +17,10 @@ just build-all       # full rebuild (needs maps/)
 Equivalent raw commands (see `justfile`), for cases `just` doesn't cover:
 
 ```bash
-uv run python tools/build_all.py                           # full rebuild (needs maps/)
-uv run python tools/build_all.py --skip-extract            # HTML only, from existing graphs/
-uv run python tools/build_all.py --maps east_reef          # rebuild specific map(s)
-uv run python tools/build_all.py --overlay-dir overlays/   # save debug overlays
+uv run python tools/build.py                           # full rebuild (needs maps/)
+uv run python tools/build.py --skip-extract            # HTML only, from existing graphs/
+uv run python tools/build.py --maps east_reef          # rebuild specific map(s)
+uv run python tools/build.py --overlay-dir overlays/   # save debug overlays
 ```
 
 ## Architecture
@@ -28,10 +28,10 @@ uv run python tools/build_all.py --overlay-dir overlays/   # save debug overlays
 ### Data flow
 
 ```
-maps/*.jpg → extract_graph.py → graphs/*.json → corrections.py → app_template.html → iow-map.html / index.html
+maps/*.jpg → extract_graph.py → graphs/*.json → corrections.py → app_template.html → index.html
 ```
 
-`build_all.py` orchestrates this: it calls `extract_graph.py` as a subprocess per map, then applies corrections and resolves metadata in-process, then injects everything into `app_template.html` via a `/* __MAPS_DATA__ */` placeholder.
+`build.py` orchestrates this: it calls `extract_graph.py` as a subprocess per map, then applies corrections and resolves metadata in-process, then injects everything into `app_template.html` via a `/* __MAPS_DATA__ */` placeholder.
 
 ### corrections.py — the source of truth
 
@@ -44,14 +44,14 @@ Everything human-verified lives here:
 
 Pixel coordinates survive re-extraction because vertex indices can change; coordinates don't.
 
-### HTML app (iow-map.html / index.html)
+### HTML app (index.html)
 
 Single-file app embedded in `app_template.html`:
 - SVG pan/zoom with `viewBox`
 - Fog-of-war via SVG mask (white circles at visited vertex positions)
 - State persisted to `localStorage` keyed `iow_<map_key>`
 - 30-deep undo stack (in-memory)
-- `iow-map.html` uses S3 URLs for map images; `index.html` uses relative `maps/` paths (GitHub Pages)
+- Uses relative `maps/` paths for map images (GitHub Pages)
 
 ### tools/label-viewer.html
 

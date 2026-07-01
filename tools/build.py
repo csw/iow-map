@@ -7,13 +7,13 @@ Runs the full pipeline:
   1. Extract graphs from map images using per-map config
   2. Apply post-extraction corrections
   3. Resolve metadata (labels, EN, GS) to vertex indices
-  4. Generate iow-map.html (S3 URLs) and index.html (relative paths)
+  4. Generate index.html
 
 Usage:
-  python tools/build_all.py                    # full rebuild
-  python tools/build_all.py --maps central_reef east_reef  # specific maps
-  python tools/build_all.py --skip-extract     # rebuild HTML from existing graphs
-  python tools/build_all.py --overlay-dir overlays/  # save debug overlays
+  python tools/build.py                    # full rebuild
+  python tools/build.py --maps central_reef east_reef  # specific maps
+  python tools/build.py --skip-extract     # rebuild HTML from existing graphs
+  python tools/build.py --overlay-dir overlays/  # save debug overlays
 
 Requires: scikit-image, Pillow, scipy, numpy
 """
@@ -38,8 +38,6 @@ MAPS_DIR = ROOT / "maps"
 GRAPHS_DIR = ROOT / "graphs"
 TOOLS_DIR = ROOT / "tools"
 EXTRACT_SCRIPT = TOOLS_DIR / "extract_graph.py"
-
-IMG_BASE_S3 = "https://csw-public-data.s3.us-east-1.amazonaws.com/IOW/maps"
 
 MAP_ORDER = [
     "central_reef", "east_reef", "the_bloom_main", "dusk_slopes",
@@ -112,7 +110,7 @@ def apply_corrections_to_graph(map_key):
     return data
 
 
-def build_html(output_path, corrected_graphs, use_relative_paths=False):
+def build_html(output_path, corrected_graphs):
     """Generate the HTML app from corrected graph data + metadata."""
     template_path = TOOLS_DIR / "app_template.html"
     if not template_path.exists():
@@ -138,10 +136,7 @@ def build_html(output_path, corrected_graphs, use_relative_paths=False):
         en = resolve_en(key, verts_px)
         gs = resolve_gs(key, verts_px)
 
-        if use_relative_paths:
-            img_url = f"maps/{key}.jpg"
-        else:
-            img_url = f"{IMG_BASE_S3}/{key}.jpg"
+        img_url = f"maps/{key}.jpg"
 
         parts = [f'name:"{meta["name"]}"']
         if en is not None:
@@ -226,8 +221,7 @@ def main():
 
     # Step 3: Build HTML
     print("\n=== Step 3: Build HTML ===")
-    build_html(ROOT / "iow-map.html", corrected, use_relative_paths=False)
-    build_html(ROOT / "index.html", corrected, use_relative_paths=True)
+    build_html(ROOT / "index.html", corrected)
 
     # Print known issues
     issues = {k: v for k, v in KNOWN_ISSUES.items() if k in maps_to_process}

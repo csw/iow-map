@@ -1,11 +1,11 @@
-# Rebuild iow-map.html and index.html from tools/app_template.html
-# (both are generated files -- never edit them directly, see CLAUDE.md)
+# Rebuild index.html from tools/app_template.html
+# (index.html is a generated file -- never edit it directly, see CLAUDE.md)
 build:
-    uv run python tools/build_all.py --skip-extract
+    uv run python tools/build.py --skip-extract
 
-# Full rebuild: re-extract graphs from maps/ then rebuild both HTML files
+# Full rebuild: re-extract graphs from maps/ then rebuild index.html
 build-all:
-    uv run python tools/build_all.py
+    uv run python tools/build.py
 
 # Regenerate assets/og-image.jpg from a live render of the app
 og-image:

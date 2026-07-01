@@ -136,7 +136,7 @@ pixel position into an exact vertex.
 
 5. **Rebuild and check for warnings.**
    ```
-   uv run python tools/build_all.py --skip-extract --maps <map_key>
+   uv run python tools/build.py --skip-extract --maps <map_key>
    ```
    Watch for `WARN: label '...' — no vertex within 80px` — that means your
    corrected coordinate landed too far from any real vertex (typo, wrong
