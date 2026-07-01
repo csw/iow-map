@@ -1,8 +1,8 @@
-# In Other Waters — Map Tracker
+# In Other Waters: Map Tracker
 
 Interactive fog-of-war map tracker for *In Other Waters*. The game has no in-game map while diving, so this tool lets you track visited nodes, see frontier nodes, and take notes across all 11 map areas.
 
-This uses the excellent [maps](https://steamcommunity.com/sharedfiles/filedetails/?id=2784267318) created by, er, Hugh Janis and posted on the Steam forums.
+This uses the excellent [maps](https://steamcommunity.com/sharedfiles/filedetails/?id=2784267318) created by, er, [Hugh Janis](https://steamcommunity.com/profiles/76561198128927251) and posted as a Steam community guide.
 
 ## Quick Start
 

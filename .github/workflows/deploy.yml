@@ -28,6 +28,9 @@ jobs:
           mkdir -p _site
           cp index.html _site/
           cp -r maps/ _site/maps/
+          cp -r assets/ _site/assets/
+          cp robots.txt _site/
+          cp sitemap.xml _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

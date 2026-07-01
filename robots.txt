@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://csw.github.io/iow-map/sitemap.xml

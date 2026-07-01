@@ -5,7 +5,24 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<title>IOW Map Tracker</title>
+<title>In Other Waters: Interactive Map | Fog-of-War Tracker</title>
+<meta name="description" content="Interactive fog-of-war map tracker for the game In Other Waters. Track visited nodes, frontier points, and dive notes across all 11 map areas.">
+<link rel="canonical" href="https://csw.github.io/iow-map/">
+<meta name="theme-color" content="#060d13">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23060d13'/%3E%3Ccircle cx='50' cy='50' r='34' fill='none' stroke='%232dd4a8' stroke-width='7'/%3E%3Ccircle cx='50' cy='50' r='11' fill='%23ffd700'/%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="In Other Waters: Interactive Map">
+<meta property="og:title" content="In Other Waters: Interactive Map">
+<meta property="og:description" content="Interactive fog-of-war map tracker for the game In Other Waters. Track visited nodes, frontier points, and dive notes across all 11 map areas.">
+<meta property="og:url" content="https://csw.github.io/iow-map/">
+<meta property="og:image" content="https://csw.github.io/iow-map/assets/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="In Other Waters: Interactive Map">
+<meta name="twitter:description" content="Interactive fog-of-war map tracker for the game In Other Waters. Track visited nodes, frontier points, and dive notes across all 11 map areas.">
+<meta name="twitter:image" content="https://csw.github.io/iow-map/assets/og-image.jpg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"In Other Waters: Interactive Map","description":"Interactive fog-of-war map tracker for the game In Other Waters. Track visited nodes, frontier points, and dive notes across all 11 map areas.","url":"https://csw.github.io/iow-map/","image":"https://csw.github.io/iow-map/assets/og-image.jpg","applicationCategory":"GameApplication","operatingSystem":"Any"}
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;background:#060d13;color:#2dd4a8;
@@ -13,17 +30,42 @@ html,body{height:100%;overflow:hidden;background:#060d13;color:#2dd4a8;
   touch-action:none;user-select:none;-webkit-user-select:none;
   overscroll-behavior:none}
 #app{display:flex;flex-direction:column;height:100dvh;height:100vh}
-#hdr{padding:6px 12px;border-bottom:1px solid rgba(45,212,168,.2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:6px}
-#hdr h1{color:#ffd700;font-size:13px;font-weight:700;letter-spacing:1.5px;margin:0;white-space:nowrap}
-.btns{display:flex;gap:5px;align-items:center;flex-shrink:0}
-.btn{background:transparent;border:1px solid rgba(106,155,141,.3);color:#6a9b8d;border-radius:6px;padding:3px 9px;font-size:11px;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#hdr{padding:7px 14px;border-bottom:1px solid rgba(45,212,168,.2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:7px}
+.brand{display:flex;align-items:center;gap:7px;flex-shrink:0;padding-right:10px;border-right:1px solid rgba(45,212,168,.2)}
+.brand svg{flex-shrink:0}
+#hdr h1{color:#ffd700;font-size:13px;font-weight:700;letter-spacing:1.5px;margin:0;white-space:nowrap;display:inline-flex;align-items:center}
+@media (max-width:720px){#hdr h1 .full{display:none}}
+@media (max-width:400px){
+  #hdr{gap:4px;padding:6px 8px}
+  #count{display:none}
+  #mapsel{max-width:108px;padding:3px 5px;font-size:11px}
+  .btns{gap:4px}
+  .btn{padding:3px 7px;font-size:11px}
+  .btn.icon{padding:3px 6px}
+  #ubtn{font-size:15px;padding:2px 7px}
+}
+.info-btn{width:17px;height:17px;border-radius:50%;border:1px solid rgba(255,215,0,.55);color:#ffd700;background:transparent;font-size:10px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;padding:0;font-family:inherit;font-weight:700;-webkit-tap-highlight-color:transparent}
+.info-btn:hover,.info-btn.on{background:rgba(255,215,0,.15)}
+#infopanel{display:none;position:absolute;top:100%;left:0;margin-top:8px;z-index:50;width:260px;max-width:calc(100vw - 24px);background:#0a1520;border:1px solid rgba(45,212,168,.35);border-radius:8px;padding:12px 14px;font-size:11px;line-height:1.55;color:#c8efe0;box-shadow:0 10px 28px rgba(0,0,0,.55);letter-spacing:normal}
+#infopanel.show{display:block}
+#infopanel p{margin:0 0 8px 0}
+#infopanel p:last-child{margin-bottom:0}
+#infopanel a{color:#6bb5ff}
+#infopanel .close{position:absolute;top:6px;right:7px;background:none;border:none;color:#6a9b8d;cursor:pointer;font-size:12px;padding:2px 4px}
+.btns{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.btn{background:transparent;border:1px solid rgba(106,155,141,.3);color:#6a9b8d;border-radius:6px;padding:4px 10px;font-size:12px;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration:none;display:inline-flex;align-items:center}
+.btn.icon{padding:4px 8px}
 .btn.on{background:rgba(45,212,168,.12);border-color:rgba(45,212,168,.4);color:#2dd4a8}
-#mapsel{background:#0a1520;border:1px solid rgba(45,212,168,.3);color:#2dd4a8;border-radius:6px;padding:3px 6px;font-size:11px;font-family:inherit;cursor:pointer;max-width:140px}
+#ubtn{font-size:17px;font-weight:700;line-height:1;padding:3px 10px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+#mapsel{background:#0a1520;border:1px solid rgba(45,212,168,.3);color:#2dd4a8;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;cursor:pointer;max-width:140px}
 #map{flex:1;overflow:hidden;position:relative}
-#info{padding:5px 12px;border-top:1px solid rgba(45,212,168,.15);flex-shrink:0;font-size:11px;display:flex;align-items:center;gap:8px;min-height:26px}
-#info .pos{color:#ffd700}
-#info .note{color:#6bb5ff}
-#bar{padding:7px 12px;border-top:1px solid rgba(45,212,168,.2);display:flex;gap:8px;justify-content:center;flex-shrink:0}
+#info{display:flex;align-items:center;gap:10px;font-size:11px;min-width:0;overflow:hidden}
+#info .pos{color:#ffd700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0}
+#info .pos .curicon{font-size:16px;line-height:1}
+#info .note{color:#6bb5ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bar{padding:7px 12px;border-top:1px solid rgba(45,212,168,.2);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.modebtns{display:flex;gap:8px;flex-shrink:0;margin-left:auto}
 .mbtn{border-radius:8px;padding:7px 16px;font-size:12px;font-family:inherit;cursor:pointer;letter-spacing:.3px;border:1px solid;-webkit-tap-highlight-color:transparent}
 .mbtn.visit{border-color:rgba(45,212,168,.4);color:rgba(45,212,168,.5);background:transparent}
 .mbtn.visit.on{background:rgba(45,212,168,.09);color:#2dd4a8;font-weight:700}
@@ -40,16 +82,31 @@ html,body{height:100%;overflow:hidden;background:#060d13;color:#2dd4a8;
 </style>
 </head>
 <body>
+<p class="sr-only">In Other Waters: Interactive Map, an interactive fog-of-war map tracker for the game In Other Waters. Track visited nodes, frontier points, and dive notes across all 11 map areas.</p>
 <div id="app">
   <div id="hdr">
-    <div style="display:flex;align-items:center;gap:8px;min-width:0">
+    <div style="display:flex;align-items:center;gap:8px;min-width:0;position:relative">
+      <div class="brand">
+        <svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="34" fill="none" stroke="#2dd4a8" stroke-width="10"/><circle cx="50" cy="50" r="12" fill="#ffd700"/></svg>
+        <h1><span class="full">In Other Waters Interactive Map</span></h1>
+        <button class="info-btn" id="infobtn" onclick="toggleInfo(event)" aria-label="About this tool" aria-expanded="false" aria-haspopup="dialog">?</button>
+      </div>
+      <div id="infopanel" role="dialog" aria-label="About this tool">
+        <button class="close" onclick="toggleInfo(event,false)" aria-label="Close">✕</button>
+        <p><strong style="color:#ffd700">In Other Waters</strong> is a narrative sci-fi diving game by Jump Over The Age. The game gives you no map while diving, so this fan-made tracker reveals each area gradually as you actually explore it. Fog of war hides everything except the path you've traveled and its immediate frontier, so you can keep your bearings without seeing the whole map at once.</p>
+        <p>Map images are from a <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=2784267318" target="_blank" rel="noopener">Steam guide</a> by <a href="https://steamcommunity.com/profiles/76561198128927251" target="_blank" rel="noopener">Hugh Janis</a>.</p>
+        <p><a href="https://www.fellowtraveller.games/in-other-waters" target="_blank" rel="noopener">In Other Waters homepage →</a> <a href="https://store.steampowered.com/app/890720/In_Other_Waters/" target="_blank" rel="noopener">(Steam)</a></p>
+      </div>
       <select id="mapsel" onchange="switchMap(this.value)"></select>
-      <div class="sub" id="count" style="color:#6a9b8d;font-size:10px;white-space:nowrap"></div>
+      <div class="sub" id="count" style="color:#6a9b8d;font-size:11px;white-space:nowrap"></div>
     </div>
     <div class="btns">
       <button class="btn" id="ubtn" style="display:none" onclick="undo()">↩</button>
       <button class="btn on" id="fbtn" onclick="toggleFog()">◐ Fog</button>
       <button class="btn" onclick="if(confirm('Reset this area?'))reset()">Reset</button>
+      <a class="btn icon" href="https://github.com/csw/iow-map" target="_blank" rel="noopener" title="View on GitHub" aria-label="View on GitHub">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
     </div>
   </div>
   <div id="map"></div>
@@ -61,10 +118,12 @@ html,body{height:100%;overflow:hidden;background:#060d13;color:#2dd4a8;
       <button class="cl" onclick="closeNote()">✕</button>
     </div>
   </div>
-  <div id="info"><span class="pos" id="postext"></span><span class="note" id="notetext"></span></div>
   <div id="bar">
-    <button class="mbtn visit on" id="vbtn" onclick="setMode('visit')">◉ Tap to visit</button>
-    <button class="mbtn note" id="nbtn" onclick="setMode('note')">✎ Add note</button>
+    <div id="info"><span class="pos" id="postext"></span><span class="note" id="notetext"></span></div>
+    <div class="modebtns">
+      <button class="mbtn visit on" id="vbtn" onclick="setMode('visit')">◉ Tap to visit</button>
+      <button class="mbtn note" id="nbtn" onclick="setMode('note')">✎ Add note</button>
+    </div>
   </div>
 </div>
 <script>
@@ -154,6 +213,23 @@ function buildMap(key){
     c.setAttribute("r",28);c.setAttribute("stroke-width",3);
     c.setAttribute("vector-effect","non-scaling-stroke");c.style.cursor="pointer";
     g.appendChild(c);
+    const cross=document.createElementNS(ns,"g");
+    cross.style.display="none";cross.style.pointerEvents="none";
+    [[-40,-14],[14,40]].forEach(([x1,x2])=>{
+      const ln=document.createElementNS(ns,"line");
+      ln.setAttribute("x1",x1);ln.setAttribute("y1",0);ln.setAttribute("x2",x2);ln.setAttribute("y2",0);
+      ln.setAttribute("stroke","#ffd700");ln.setAttribute("stroke-width",4);
+      ln.setAttribute("stroke-linecap","round");ln.setAttribute("vector-effect","non-scaling-stroke");
+      cross.appendChild(ln);
+    });
+    [[-40,-14],[14,40]].forEach(([y1,y2])=>{
+      const ln=document.createElementNS(ns,"line");
+      ln.setAttribute("x1",0);ln.setAttribute("y1",y1);ln.setAttribute("x2",0);ln.setAttribute("y2",y2);
+      ln.setAttribute("stroke","#ffd700");ln.setAttribute("stroke-width",4);
+      ln.setAttribute("stroke-linecap","round");ln.setAttribute("vector-effect","non-scaling-stroke");
+      cross.appendChild(ln);
+    });
+    g.appendChild(cross);
     const nd=document.createElementNS(ns,"text");
     nd.setAttribute("y",50);nd.setAttribute("text-anchor","middle");
     nd.setAttribute("fill","#6bb5ff");nd.setAttribute("font-size",42);
@@ -254,7 +330,7 @@ function reset(){
 function tapNode(id){
   if(mode==="note"){
     editId=id;
-    document.getElementById("nlabel").textContent="Note — "+(LBL[id]||"node "+id);
+    document.getElementById("nlabel").textContent="Note: "+(LBL[id]||"node "+id);
     document.getElementById("ninput").value=notes[id]||"";
     document.getElementById("noted").style.display="block";
     setTimeout(()=>document.getElementById("ninput").focus(),100);
@@ -286,6 +362,18 @@ function toggleFog(){
   fog=!fog;document.getElementById("fbtn").textContent=fog?"◐ Fog":"◯ Fog";
   document.getElementById("fbtn").classList.toggle("on",fog);save();render();
 }
+function toggleInfo(e,force){
+  e&&e.stopPropagation();
+  const p=document.getElementById("infopanel"),b=document.getElementById("infobtn");
+  const show=force!==undefined?force:!p.classList.contains("show");
+  p.classList.toggle("show",show);
+  b.classList.toggle("on",show);
+  b.setAttribute("aria-expanded",show?"true":"false");
+}
+document.addEventListener("click",e=>{
+  const p=document.getElementById("infopanel");
+  if(p&&p.classList.contains("show")&&!p.contains(e.target)&&e.target.id!=="infobtn")toggleInfo(null,false);
+});
 function setMode(m){
   mode=m;document.getElementById("vbtn").classList.toggle("on",m==="visit");
   document.getElementById("nbtn").classList.toggle("on",m==="note");
@@ -317,17 +405,19 @@ function render(){
     const isEN=M.EN&&M.EN.includes(i);
     if(fog&&!isVis&&!isFr&&!isEN){g.style.display="none";return;}
     g.style.display="";g.setAttribute("transform",`translate(${px},${py})`);
-    const c=g.children[1],ring=g.children[0],nd=g.children[2],label=g.children[3];
-    if(isCur){c.setAttribute("fill","#ffd700");c.setAttribute("stroke","#ffd700");c.setAttribute("opacity",.95);c.setAttribute("stroke-width",4);}
+    const c=g.children[1],ring=g.children[0],cross=g.children[2],nd=g.children[3],label=g.children[4];
+    if(isCur){c.setAttribute("fill","rgba(255,215,0,0.18)");c.setAttribute("stroke","#ffd700");c.setAttribute("opacity",.95);c.setAttribute("stroke-width",4);}
     else if(isVis){c.setAttribute("fill","rgba(255,255,255,0.28)");c.setAttribute("stroke","rgba(45,212,168,0.9)");c.setAttribute("opacity",.9);c.setAttribute("stroke-width",3);}
     else{c.setAttribute("fill","transparent");c.setAttribute("stroke","rgba(255,200,100,0.7)");c.setAttribute("opacity",.85);c.setAttribute("stroke-width",2.5);}
     ring.style.display=isCur?"":"none";
+    cross.style.display=isCur?"":"none";
     nd.style.display=notes[i]?"":"none";
     if(notes[i])nd.textContent="\u{1F4DD} "+notes[i];
     if(label)label.style.display=(isVis||!fog||isEN)?"":"none";
   });
+  updateCrossScale();
   const p=document.getElementById("postext"),n=document.getElementById("notetext");
-  p.textContent=cur!=null?"\u2B24 "+(LBL[cur]||"Node "+cur):"";
+  p.innerHTML=cur!=null?`<span class="curicon">\u2316</span><span>${LBL[cur]||"Node "+cur}</span>`:"";
   n.textContent=cur!=null&&notes[cur]?"\u{1F4DD} "+notes[cur]:"";
 }
 
@@ -339,7 +429,20 @@ function screenToSVG(sx,sy){
   if(!m)return{x:0,y:0};
   return pt.matrixTransform(m.inverse());
 }
-function updateVB(){svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);}
+function updateVB(){
+  svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  updateCrossScale();
+}
+function updateCrossScale(){
+  if(cur==null||!nodeEls||!nodeEls[cur])return;
+  const cross=nodeEls[cur].children[2];
+  if(!cross||cross.style.display==="none")return;
+  const mapEl=document.getElementById("map");
+  const mapW=(mapEl&&mapEl.clientWidth)||IW;
+  const naturalArm=40*(mapW/vb.w);
+  const desiredArm=Math.max(16,Math.min(40,naturalArm));
+  cross.setAttribute("transform",`scale(${desiredArm/naturalArm})`);
+}
 function findNode(sx,sy){
   const p=screenToSVG(sx,sy);
   const m=svg.getScreenCTM();const scale=m?m.a:1;
