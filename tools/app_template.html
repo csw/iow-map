@@ -288,7 +288,8 @@ function frontier(){
 function render(){
   const fr=frontier();
   document.getElementById("count").textContent=vis.size+" / "+V.length;
-  V.forEach((_,i)=>{maskCircles[i].style.display=vis.has(i)?"":"none"});
+  const enSet=M.EN?new Set(M.EN):null;
+  V.forEach((_,i)=>{maskCircles[i].style.display=(vis.has(i)||(enSet&&enSet.has(i)))?"":"none"});
   imgEl.setAttribute("mask",fog?"url(#fmask)":"none");
   imgEl.setAttribute("opacity",fog?"0.45":"0.55");
   E.forEach(([a,b],i)=>{
