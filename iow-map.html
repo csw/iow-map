@@ -342,7 +342,7 @@ function tapNode(id){
     document.getElementById("nlabel").textContent="Note: "+(LBL[id]||"node "+id);
     document.getElementById("ninput").value=notes[id]||"";
     document.getElementById("noted").style.display="block";
-    setTimeout(()=>document.getElementById("ninput").focus(),100);
+    document.getElementById("ninput").focus();
     return;
   }
   pushUndo();
