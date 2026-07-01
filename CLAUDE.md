@@ -4,12 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Critical Rule
 
-**Never edit `iow-map.html` or `index.html` directly** — both are generated. All changes go into `tools/corrections.py` (graph fixes) or `tools/app_template.html` (UI changes), then rebuild.
+**Never edit `iow-map.html` or `index.html` directly** — both are generated. All changes go into `tools/corrections.py` (graph fixes) or `tools/app_template.html` (UI changes), then rebuild. A rebuild always regenerates **both** `iow-map.html` and `index.html` together — there is no supported way to rebuild just one.
 
 ## Build Commands
 
 ```bash
-uv sync                                                    # install deps (first time)
+uv sync              # install deps (first time)
+just build           # HTML only, from existing graphs/ -- use this after template/corrections edits
+just build-all       # full rebuild (needs maps/)
+```
+
+Equivalent raw commands (see `justfile`), for cases `just` doesn't cover:
+
+```bash
 uv run python tools/build_all.py                           # full rebuild (needs maps/)
 uv run python tools/build_all.py --skip-extract            # HTML only, from existing graphs/
 uv run python tools/build_all.py --maps east_reef          # rebuild specific map(s)

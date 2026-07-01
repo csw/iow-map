@@ -226,3 +226,6 @@ __marimo__/
 # Debug viewer artifacts (regenerate via .claude/skills/verify-map-labels)
 /label_debug_viewer.html
 /map_data_debug.json
+
+# Local Claude Code launch config (per-machine preview server setup)
+.claude/launch.json

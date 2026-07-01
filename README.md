@@ -24,10 +24,12 @@ This uses the excellent [maps](https://steamcommunity.com/sharedfiles/filedetail
 uv sync
 
 # Add map images to maps/ directory, then:
-uv run python tools/build_all.py
+just build-all
 ```
 
-This runs the full pipeline: extract graphs from map images → apply manual corrections → generate HTML.
+This runs the full pipeline: extract graphs from map images → apply manual corrections → generate HTML. Both `iow-map.html` and `index.html` are always regenerated together.
+
+After editing `tools/app_template.html` or `tools/corrections.py`, skip re-extraction with `just build`.
 
 See `docs/HANDOFF.md` for full architecture documentation.
 
