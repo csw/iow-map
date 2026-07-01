@@ -39,6 +39,8 @@ This runs the full pipeline: extract graphs from map images → apply manual cor
 
 After editing `tools/app_template.html` or `tools/corrections.py`, skip re-extraction with `just build`.
 
+Run `just install-hooks` once to install a pre-commit hook that rebuilds `index.html` and blocks the commit if it was stale.
+
 See `docs/HANDOFF.md` for full architecture documentation.
 
 ## Project Structure

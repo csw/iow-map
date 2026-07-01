@@ -14,3 +14,8 @@ og-image:
 # Regenerate assets/screenshot.png (README) from a live render of the app
 screenshot:
     uv run python tools/gen_screenshot.py
+
+# Install the pre-commit hook that checks index.html is up to date
+install-hooks:
+    cp tools/hooks/pre-commit .git/hooks/pre-commit
+    chmod +x .git/hooks/pre-commit
