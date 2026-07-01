@@ -6,7 +6,7 @@ Interactive, incremental map tracker for [*In Other Waters*][game]. The game onl
 
 ![Screenshot of the map tracker showing a partially-revealed Central Reef](assets/screenshot.png)
 
-The locations you've visited are stored in your browser.
+The locations you've visited are stored in your browser. The site uses [GoatCounter](https://www.goatcounter.com/) for anonymous visit stats (no cookies, no personal data) — your map progress itself is never sent anywhere.
 
 This uses the excellent [maps](https://steamcommunity.com/sharedfiles/filedetails/?id=2784267318) created by, er, '[Hugh Janis](https://steamcommunity.com/profiles/76561198128927251)' and posted as a Steam community guide.
 
